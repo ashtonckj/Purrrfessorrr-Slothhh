@@ -3,9 +3,9 @@ import { getConfig } from './api.js';
 import { on } from './bus.js';
 import { initFlow, greet } from './flow.js';
 import { initHeader, setHeaderSloth } from './header.js';
+import { followSlothMood } from './mood.js';
+import { initOffice } from './office.js';
 import { loadSprites } from './sprites.js';
-import { UI } from '../copy.js';
-import { el } from './ui.js';
 
 async function detectFont() {
   // Without the bundled pixel font, bump sizes so monospace stays readable.
@@ -19,25 +19,11 @@ async function main() {
   initHeader(document.getElementById('topbar'), config);
   initFlow(config);
 
-  // Office scene arrives in step 4; placeholder for now.
-  document.getElementById('office').append(el('div', { class: 'px-frame', style: { height: '100%' } },
-    el('div', { class: 'office__fill px-fill' }, UI.officeSoon)));
+  initOffice(document.getElementById('office'));
+  followSlothMood(setHeaderSloth);
 
-  // The header sloth mirrors the sloth's mood (talk returns to the previous mood).
-  let mood = 'sleep';
-  setHeaderSloth(mood);
-  let talkTimer;
-  on('sloth:mood', ({ mood: m }) => {
-    if (m === 'talk') {
-      setHeaderSloth('talk');
-      clearTimeout(talkTimer);
-      talkTimer = setTimeout(() => setHeaderSloth(mood), 1800);
-    } else {
-      mood = m;
-      clearTimeout(talkTimer);
-      setHeaderSloth(m);
-    }
-  });
+  // The results drawer arrives in step 5.
+  on('drawer:open', ({ cat }) => console.info('[drawer] open', cat));
 
   greet();
 }

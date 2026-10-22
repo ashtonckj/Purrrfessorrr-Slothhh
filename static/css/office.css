@@ -1,0 +1,297 @@
+/*
+ * The office scene. --s is the integer sprite scale for the cats and --ss the
+ * (bigger) one for the sloth; office.js sets both from the available space.
+ * All sizes that line up with sprites are multiples of --s art pixels.
+ */
+
+.office { flex: 1; min-height: 0; }
+
+.office__frame { height: 100%; }
+
+.room {
+  --s: 2;
+  --ss: 3;
+  --wall: var(--cream-shadow);
+  --wall-line: #d6c49c;
+  --floor: var(--tan);
+  --floor-line: #b5875a;
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--wall);
+}
+
+:root[data-theme="night"] .room {
+  --wall: #2e2633;
+  --wall-line: #3a3140;
+  --floor: #4a3a32;
+  --floor-line: #3b2e27;
+}
+
+/* wallpaper: thin vertical pinstripes (hard stops) */
+.room::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 22px, var(--wall-line) 22px 24px);
+  pointer-events: none;
+}
+
+.room > * { position: relative; z-index: 1; }
+
+/* ------------------------------------------------------------------ boss */
+
+.boss {
+  display: grid;
+  justify-items: center;
+  padding-top: calc(var(--s) * 2px);
+  margin-bottom: auto;
+}
+
+/* wall decorations */
+.decor {
+  position: absolute;
+  z-index: 0;
+  box-shadow: 0 0 0 3px var(--ink), 4px 4px 0 3px var(--shadow);
+}
+.decor--chart {
+  left: 6%;
+  top: 22%;
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  width: 92px;
+  height: 64px;
+  padding: 8px;
+  background: var(--white);
+}
+.decor--chart span { flex: 1; background: var(--leaf); }
+.decor--chart span:nth-child(4) { background: var(--pink); }
+.decor--sign {
+  right: 7%;
+  top: 18%;
+  padding: 10px 12px;
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  white-space: pre;
+  text-align: center;
+  color: var(--white);
+  background: var(--forest);
+  transform: rotate(3deg);
+}
+
+.boss__branch { margin-bottom: calc(var(--ss) * -6px); }
+
+.boss__stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+}
+
+.boss__zzz {
+  position: absolute;
+  left: calc(100% - var(--ss) * 6px);
+  top: calc(var(--ss) * -4px);
+}
+.boss__zzz[hidden] { display: none; }
+
+.boss__desk {
+  position: relative;
+  /* desk top surface starts 4 art px down; align it with the sloth's belly */
+  margin-top: calc(var(--ss) * -10px);
+  display: grid;
+  justify-items: center;
+}
+
+.boss__stack {
+  position: absolute;
+  left: calc(var(--ss) * 1px);
+  bottom: calc(var(--ss) * 20px - var(--s) * 3px);
+  line-height: 0;
+}
+.boss__stack[hidden] { display: none; }
+
+.capped-note {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 10px);
+  margin-left: -110px;
+  width: 220px;
+  text-align: center;
+  padding: 6px 8px;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  background: var(--yellow);
+  color: var(--ink);
+  box-shadow: 0 0 0 2px var(--ink), 3px 3px 0 2px var(--ink);
+  transform: rotate(-2deg);
+}
+.capped-note[hidden] { display: none; }
+
+/* speech bubble to the right of the sloth */
+.speech {
+  position: absolute;
+  left: calc(100% + 14px);
+  top: calc(var(--ss) * 2px);
+  width: max-content;
+  max-width: 220px;
+}
+.speech[hidden] { display: none; }
+
+.speech__fill {
+  padding: 8px 10px;
+  background: var(--white);
+  color: var(--ink);
+  font-size: var(--fs-s);
+  line-height: 1.6;
+  clip-path: var(--px-corners);
+}
+
+.speech::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 12px;
+  width: 9px;
+  height: 9px;
+  background: var(--white);
+  clip-path: polygon(100% 0, 100% 100%, 66.67% 100%, 66.67% 66.67%, 33.33% 66.67%, 33.33% 33.33%, 0 33.33%, 0 0);
+}
+
+.speech__score { display: block; font-size: var(--fs-m); margin-top: 4px; }
+.speech__score[data-mood="happy"] { color: var(--forest); }
+.speech__score[data-mood="grumpy"] { color: var(--red); }
+.speech__score[data-mood="idle"] { color: var(--wood); }
+
+/* -------------------------------------------------------------- stations */
+
+.stations {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 0;
+  padding: 18px 12px 14px;
+  list-style: none;
+  /* wooden floor with a skirting board on top (hard stops only) */
+  background:
+    linear-gradient(var(--wood-dark) 0 6px, transparent 6px),
+    repeating-linear-gradient(0deg, var(--floor) 0 18px, var(--floor-line) 18px 21px);
+}
+
+.station {
+  display: grid;
+  justify-items: center;
+  width: calc(var(--s) * 48px);
+}
+
+.station__cat {
+  /* the cat is a button: click opens its results */
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  line-height: 0;
+}
+.station__cat:hover .sprite { transform: translateY(calc(var(--s) * -1px)); }
+.station__cat:focus-visible { outline-offset: 4px; }
+
+.station__desk {
+  position: relative;
+  margin-top: calc(var(--s) * -10px);
+  line-height: 0;
+}
+
+.plate {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--s) * 10px);
+  transform: translateX(-50%);
+  padding: 3px 5px 2px;
+  font-size: var(--fs-xs);
+  line-height: 1.2;
+  white-space: nowrap;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 0 0 0 2px var(--ink);
+  letter-spacing: 1px;
+}
+
+.pile {
+  position: absolute;
+  right: calc(var(--s) * -2px);
+  bottom: calc(var(--s) * 19px);
+  width: calc(var(--s) * 16px);
+  height: calc(var(--s) * 16px);
+}
+
+.pile .sprite {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--i) * var(--s) * 2px - var(--s) * 2px);
+}
+
+/* ----------------------------------------------------------- progress bar */
+
+.pbar {
+  position: relative;
+  width: 100%;
+  margin-top: calc(var(--s) * 10px + 8px);
+}
+
+.pbar__track {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 2px;
+  padding: 3px;
+  background: var(--ink);
+}
+
+.pbar__seg { height: 10px; background: var(--surface-2); }
+.pbar__seg.on { background: var(--leaf); }
+.station[data-state="done"] .pbar__seg.on { background: var(--forest); }
+.station[data-state="error"] .pbar__seg.on { background: var(--red); }
+:root[data-theme="night"] .pbar__seg { background: #4a4250; }
+
+/* the little runner sits on top of the bar */
+.pbar__runner {
+  position: absolute;
+  bottom: calc(100% - 2px);
+  left: calc((100% - var(--s) * 16px) * var(--p, 0));
+  line-height: 0;
+  transition: left 0.4s steps(4);
+}
+.pbar__runner[hidden] { display: none; }
+
+.station__msg {
+  width: 100%;
+  margin-top: 6px;
+  min-height: 2.6em;
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+  text-align: center;
+  color: var(--text);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.station__msg .sprite { vertical-align: -4px; }
+
+.station .btn { margin-top: 4px; min-height: 30px; font-size: var(--fs-xs); padding: 4px 10px; }
+
+/* ----------------------------------------------------------- flying paper */
+
+.flyer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  pointer-events: none;
+  line-height: 0;
+}

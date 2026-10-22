@@ -213,23 +213,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 .topbar__actions { margin-left: auto; display: flex; gap: 10px; }
 
-/* ---------------------------------------------------------------- office (step 4) */
-
-.office {
-  flex: 1;
-  min-height: 0;
-}
-
-.office__fill {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  color: var(--text-muted);
-  background: var(--surface-2);
-  padding: 24px;
-}
-
 /* ---------------------------------------------------------------- dialog */
 
 dialog.settings {

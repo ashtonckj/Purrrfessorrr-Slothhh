@@ -66,7 +66,6 @@ export const UI = {
   drop: "drop it like it's hot... slowly",
   dropHint: '.csv  .tsv  .xlsx',
   results: 'Results',
-  officeSoon: 'the office is being built (step 4)... the cats are on a coffee break',
   uploading: pct => `uploading... ${pct}%`,
   counting: 'counting rows...',
   fileInfo: ({ size, rows, cols }) => `${size} · ${rows} rows · ${cols} cols`,
@@ -140,6 +139,26 @@ export const CATS = {
     janitor: ({ cards }) => `${lower(cards[0]?.title ?? 'all clean')}, swept up.`,
   },
   error: ({ message }) => `oops... ${message}`,
+};
+
+/** The office scene (left column). */
+export const OFFICE = {
+  plates: { detective: 'DETECTIVE', artist: 'ARTIST', scribe: 'SCRIBE', coder: 'CODER', janitor: 'JANITOR' },
+  bubble: {
+    idle: ['drop a csv... in the chat...', 'resting my eyes... not asleep...'],
+    start: ['papers... go...', 'okaaay... delegating...'],
+    working: 'zzz...',
+    health: ({ score }) => `health: ${score}/100`,
+    mood: ({ score }) => (score > 80 ? 'tidy... nice...' : score < 40 ? 'ugh... messy...' : 'meh... okay...'),
+  },
+  sign: 'NAP\nMORE',
+  capped: ({ total }) => `${total} lots of papers, the sloth only gave you the first 30`,
+  waiting: 'waiting for papers...',
+  ready: 'papers received',
+  done: 'done!',
+  error: 'confused...',
+  catLabel: ({ name, role, state, percent }) => `${name}, ${role}. ${state}${percent != null ? `, ${percent}%` : ''}. Open results.`,
+  states: { idle: 'idle', work: 'working', done: 'done', error: 'error' },
 };
 
 function lower(s) {
