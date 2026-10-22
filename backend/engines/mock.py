@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 
 from ..cats import CAT_IDS, paper_total, split_papers
-from ..files import FileInfo
+from ..files import FileInfo, iter_rows
 from ..jobs import Job
 from . import mock_copy as copy
 from .base import Engine
@@ -115,35 +115,14 @@ class MockEngine(Engine):
 def _peek(info: FileInfo) -> Peek:
     """Read a few rows to guess which columns are numeric."""
     samples: dict[str, list[str]] = {c: [] for c in info.columns}
-    ext = info.path.suffix.lower()
     try:
-        if ext == ".xlsx":
-            from openpyxl import load_workbook
-
-            wb = load_workbook(info.path, read_only=True, data_only=True)
-            rows = wb.worksheets[0].iter_rows(values_only=True)
-            next(rows, None)
-            for i, row in enumerate(rows):
-                if i >= PEEK_ROWS:
-                    break
-                for col, value in zip(info.columns, row):
-                    samples[col].append("" if value is None else str(value))
-            wb.close()
-        else:
-            with info.path.open("r", encoding="utf-8-sig", errors="replace", newline="") as fh:
-                head = fh.read(64 * 1024)
-                fh.seek(0)
-                try:
-                    delim = "\t" if ext == ".tsv" else csv.Sniffer().sniff(head, ",;\t|").delimiter
-                except csv.Error:
-                    delim = ","
-                reader = csv.reader(fh, delimiter=delim)
-                next(reader, None)
-                for i, row in enumerate(reader):
-                    if i >= PEEK_ROWS:
-                        break
-                    for col, value in zip(info.columns, row):
-                        samples[col].append(value)
+        for i, row in enumerate(iter_rows(info)):
+            if i == 0:
+                continue                      # header
+            if i > PEEK_ROWS:
+                break
+            for col, value in zip(info.columns, row):
+                samples[col].append("" if value is None else str(value))
     except Exception:  # a mock must never crash on a weird file
         pass
 
@@ -245,7 +224,7 @@ df[mask].head()""", "r": None},
             "chart": {"type": "bar", "title": "Unique vs duplicate rows", "x_label": "", "y_label": "rows",
                       "labels": ["unique", "duplicate"], "values": [info.rows - stats["duplicates"], stats["duplicates"]]},
             "table": {"columns": ["first_seen_row", "duplicate_row"],
-                      "rows": sorted([[(r := rng.randint(2, info.rows)), r + rng.randint(1, 400)]
+                      "rows": sorted([[(r := rng.randint(2, max(2, info.rows))), r + rng.randint(1, 400)]
                                       for _ in range(min(10, stats["duplicates"]))])},
             "code": {"python": f"""dupes = df[df.duplicated(keep="first")]
 print(len(dupes), "duplicate rows")
