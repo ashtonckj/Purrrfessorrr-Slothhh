@@ -1,0 +1,87 @@
+/**
+ * API client. The only module that knows URLs. Contract: API.md.
+ */
+
+export class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+async function json(res) {
+  if (res.ok) return res.json();
+  let detail = res.statusText;
+  try { detail = (await res.json()).detail ?? detail; } catch { /* not json */ }
+  throw new ApiError(res.status, String(detail));
+}
+
+function post(url, body) {
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(json);
+}
+
+export const getConfig = () => fetch('/api/config').then(json);
+
+/**
+ * Upload a file. Uses XHR (not fetch) so we get upload progress.
+ * @param {File} file
+ * @param {(pct: number) => void} onProgress
+ */
+export function upload(file, onProgress = () => {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    xhr.open('POST', '/api/upload');
+    xhr.responseType = 'json';
+    xhr.upload.onprogress = e => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response);
+      else reject(new ApiError(xhr.status, xhr.response?.detail ?? xhr.statusText ?? 'upload failed'));
+    };
+    xhr.onerror = () => reject(new ApiError(0, 'the server is not answering'));
+    xhr.send(fd);
+  });
+}
+
+export const analyze = fileId => post('/api/analyze', { file_id: fileId });
+
+export const chat = (jobId, message) => post('/api/chat', { job_id: jobId, message });
+
+export const getResults = (jobId, cat) => fetch(`/api/results/${jobId}/${cat}`).then(json);
+
+export const exportUrl = (jobId, kind) => `/api/export/${jobId}/${kind}`;
+
+export const SAMPLE_URL = '/api/sample.csv';
+
+const EVENT_TYPES = ['delegated', 'progress', 'result', 'error', 'done'];
+
+/**
+ * Subscribe to a job's event stream.
+ * @param {string} jobId
+ * @param {(type: string, data: object) => void} onEvent
+ * @param {() => void} onLost  called if the stream dies before `done`
+ * @returns {() => void} close function
+ */
+export function streamJob(jobId, onEvent, onLost = () => {}) {
+  const es = new EventSource(`/api/jobs/${jobId}/events`);
+  let finished = false;
+  for (const type of EVENT_TYPES) {
+    es.addEventListener(type, e => {
+      onEvent(type, JSON.parse(e.data));
+      if (type === 'done') {
+        finished = true;
+        es.close();
+      }
+    });
+  }
+  // EventSource retries by itself; CLOSED means it gave up (e.g. server restarted).
+  es.onerror = () => {
+    if (!finished && es.readyState === EventSource.CLOSED) onLost();
+  };
+  return () => { finished = true; es.close(); };
+}

@@ -4,15 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Purrfessorrr Slothhh</title>
-  <style>
-    body { font-family: monospace; background: #f4ead5; color: #3b2a1e; padding: 32px; }
-    a { color: #2f5d3a; }
-  </style>
+  <link rel="icon" href="assets/avatars/sloth.png">
+  <link rel="stylesheet" href="css/palette.css">
+  <link rel="stylesheet" href="css/sprites.css">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/chat.css">
 </head>
 <body>
-  <!-- Placeholder until step 3/4 builds the real office + chat UI. -->
-  <h1>Purrfessorrr Slothhh</h1>
-  <p>the office is still being built... the sloth is supervising (napping).</p>
-  <p><a href="dev.html">open the API test bench</a> · <a href="sprites.html">open the sprite gallery</a></p>
+  <div class="app">
+    <!-- LEFT: the office -->
+    <section class="office-col" aria-label="The office">
+      <header class="topbar" id="topbar"></header>
+      <div class="office" id="office"></div>
+    </section>
+
+    <!-- RIGHT: chat with the sloth (also the CSV drop zone) -->
+    <section class="chat" id="chat" aria-label="Chat with Professor Slothhh"></section>
+  </div>
+
+  <noscript>Purrfessorrr Slothhh needs JavaScript... the sloth is too lazy to work without it.</noscript>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
