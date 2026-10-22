@@ -131,7 +131,15 @@ function setSlothMood(mood) {
   boss.zzzWrap.hidden = mood !== 'sleep';
 }
 
+/** Re-trigger a one-shot CSS animation class. */
+function replay(node, cls) {
+  node.classList.remove(cls);
+  void node.offsetWidth;
+  node.classList.add(cls);
+}
+
 function speak(text, score = null, mood = 'idle') {
+  if (boss.speechText.textContent !== text) replay(boss.speech, 'pop');
   boss.speechText.textContent = text;
   boss.speechScore.hidden = score == null;
   if (score != null) {
@@ -179,6 +187,8 @@ function onDelegated({ cat, paper_count: count }) {
     flyPaper(cat, (i * CAT_IDS.length + order) * 90).then(() => {
       st.landed += 1;
       renderPile(cat);
+      replay(st.catBtn, 'hop');      // the cat bounces when a paper lands
+      emit('sound', { name: 'paper' });
       flightsPending -= 1;
       if (flightsPending === 0) boss.stackWrap.hidden = true;
     });
@@ -252,6 +262,7 @@ function setCatState(cat, state, message) {
     st.runnerWrap.style.setProperty('--p', '1');
     setSprite(st.runner, 'progress_cat_sit');
     st.results.disabled = false;
+    replay(st.results, 'flash');
     st.msg.replaceChildren(createSprite('icon_check', { scale: 1, alt: '' }), ' ', OFFICE.done);
     renderPile(cat);
   } else if (state === 'error') {

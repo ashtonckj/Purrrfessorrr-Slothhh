@@ -111,6 +111,7 @@ async function runFile(file) {
     throw err;
   }
   card.setInfo(info);
+  emit('sound', { name: 'drop' });
 
   const rows = formatNumber(info.rows);
   const first = state.jobs === 0;
@@ -164,6 +165,7 @@ function listen(jobId, info) {
     } else if (type === 'error') {
       if (data.cat) {
           chat.addMessage({ from: data.cat, text: say(CATS.error, { message: data.message }), icon: 'icon_warning' });
+        emit('sound', { name: 'error' });
         await slothSays(say(SLOTH.catError, { cat: NAMES[data.cat].split(' ')[0].toLowerCase() }));
       } else {
         await slothSays(data.message);

@@ -107,8 +107,21 @@ The same colours are CSS variables in `static/css/palette.css`.
 
 ## Other folders
 
-- `static/assets/fonts/`: the pixel font (see README).
-- `static/assets/audio/`: empty, reserved for background music / sound effects later.
+- `static/assets/fonts/`: the pixel font. Expected file: `PressStart2P-Regular.ttf` (see README for the download link).
+- `static/assets/audio/`: optional sound effects and music. List files in `sounds.json`:
+
+  | name | when it plays |
+  |---|---|
+  | `pop` | the sloth posts a chat message |
+  | `drop` | a file finished uploading |
+  | `paper` | a paper lands on a cat's desk |
+  | `done` | a cat finished its job |
+  | `copy` | code was copied |
+  | `error` | a cat gave up |
+  | `music` | loops quietly while sound is on |
+
+  Short `.ogg`, `.mp3` or `.wav` files work. Sound is off until the speaker button
+  in the header is pressed; names without a file use a built-in chiptune blip.
 - Chat bubble tails and borders are drawn in CSS (so they follow the day/night theme), not PNGs.
 
 ## Every sprite

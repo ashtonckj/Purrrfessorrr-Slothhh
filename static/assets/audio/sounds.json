@@ -1,0 +1,4 @@
+{
+  "_readme": "Map a sound name to a file in this folder, e.g. \"pop\": \"pop.ogg\". Names without a file use a tiny built-in chiptune blip. \"music\" loops quietly while sound is on.",
+  "files": {}
+}

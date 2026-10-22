@@ -295,3 +295,25 @@
   pointer-events: none;
   line-height: 0;
 }
+
+/* ---------------------------------------------------- one-shot animations
+ * Stepped (no easing curves) so they feel frame-by-frame. Turned off by the
+ * global prefers-reduced-motion rule in app.css.
+ */
+.speech.pop { animation: speech-pop 0.3s steps(3); }
+@keyframes speech-pop {
+  0% { transform: scale(0.85); transform-origin: left center; }
+  100% { transform: none; }
+}
+
+.station__cat.hop { animation: cat-hop 0.32s steps(4); }  /* on the button, so the sprite keeps animating */
+@keyframes cat-hop {
+  0%, 100% { transform: none; }
+  50% { transform: translateY(calc(var(--s) * -3px)); }
+}
+
+.station .btn.flash { animation: btn-flash 0.9s steps(1) 2; }
+@keyframes btn-flash {
+  0% { background: var(--yellow); color: var(--ink); }
+  50% { background: var(--surface); }
+}

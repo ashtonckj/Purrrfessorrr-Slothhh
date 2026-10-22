@@ -5,6 +5,7 @@ import { initFlow, greet } from './flow.js';
 import { initHeader, setHeaderSloth } from './header.js';
 import { followSlothMood } from './mood.js';
 import { initOffice } from './office.js';
+import { initSound } from './sound.js';
 import { loadSprites } from './sprites.js';
 
 async function detectFont() {
@@ -14,7 +15,7 @@ async function detectFont() {
 }
 
 async function main() {
-  const [config] = await Promise.all([getConfig().catch(() => null), loadSprites(), detectFont()]);
+  const [config] = await Promise.all([getConfig().catch(() => null), loadSprites(), detectFont(), initSound()]);
 
   initHeader(document.getElementById('topbar'), config);
   initFlow(config);

@@ -20,10 +20,21 @@ from backend.config import settings
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
+
+class FreshStaticFiles(StaticFiles):
+    """Static files that the browser re-checks on every load (cheap 304s),
+    so edited JS/CSS and swapped-in sprites show up without a hard refresh."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 app = FastAPI(title="Purrfessorrr Slothhh", docs_url="/api/docs", redoc_url=None)
 app.include_router(router)
 # Mounted last so /api routes win; html=True serves index.html at "/".
-app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+app.mount("/", FreshStaticFiles(directory=STATIC_DIR, html=True), name="static")
 
 
 def main() -> None:

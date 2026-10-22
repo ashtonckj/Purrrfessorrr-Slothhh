@@ -3,6 +3,7 @@
  */
 import { APP_NAME, UI } from '../copy.js';
 import { SAMPLE_URL } from './api.js';
+import { isSoundOn, onSoundChange, setSoundOn } from './sound.js';
 import { createSprite, setSprite } from './sprites.js';
 import { el, icon } from './ui.js';
 
@@ -40,6 +41,17 @@ export function initHeader(container, config) {
   });
   paintThemeBtn();
 
+  // Sound: off by default (see sound.js)
+  const soundBtn = el('button', { type: 'button', class: 'btn btn--icon', onclick: () => setSoundOn(!isSoundOn()) });
+  const paintSoundBtn = on_ => {
+    soundBtn.replaceChildren(icon(on_ ? 'sound_on' : 'sound_off'));
+    soundBtn.setAttribute('aria-pressed', String(on_));
+    soundBtn.setAttribute('aria-label', UI.soundToggle);
+    soundBtn.title = on_ ? UI.soundIsOn : UI.soundIsOff;
+  };
+  onSoundChange(paintSoundBtn);
+  paintSoundBtn(isSoundOn());
+
   const dialog = buildSettings(config);
   const settingsBtn = el('button', { type: 'button', class: 'btn btn--icon', 'aria-label': UI.settings, title: UI.settings,
     'aria-haspopup': 'dialog', onclick: () => dialog.showModal() }, icon('gear'));
@@ -50,7 +62,7 @@ export function initHeader(container, config) {
       el('div', {},
         el('h1', { text: APP_NAME }),
         el('div', { class: 'topbar__sub', text: UI.tagline })),
-      el('div', { class: 'topbar__actions' }, themeBtn, settingsBtn))));
+      el('div', { class: 'topbar__actions' }, soundBtn, themeBtn, settingsBtn))));
   document.body.append(dialog);
 }
 

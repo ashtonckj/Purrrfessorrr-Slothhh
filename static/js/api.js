@@ -72,6 +72,9 @@ export function streamJob(jobId, onEvent, onLost = () => {}) {
   let finished = false;
   for (const type of EVENT_TYPES) {
     es.addEventListener(type, e => {
+      // A server "error" event shares its name with EventSource's own connection
+      // errors; those carry no data and are handled by onerror below.
+      if (e.data == null) return;
       onEvent(type, JSON.parse(e.data));
       if (type === 'done') {
         finished = true;
