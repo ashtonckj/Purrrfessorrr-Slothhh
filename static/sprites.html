@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sprite Gallery</title>
+  <link rel="stylesheet" href="css/palette.css">
+  <link rel="stylesheet" href="css/sprites.css">
+  <style>
+    /* Gallery-only styles; the real app styles arrive in step 3. */
+    body { margin: 0; padding: 16px 24px 48px; background: var(--bg); color: var(--text); font: 14px/1.4 monospace; }
+    h1 { margin: 0 0 4px; }
+    h2 { margin: 28px 0 8px; text-transform: uppercase; font-size: 15px; }
+    .bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 12px 0; }
+    button { font: inherit; background: var(--surface); color: var(--text); border: 2px solid var(--border);
+             box-shadow: 2px 2px 0 var(--shadow); padding: 4px 10px; cursor: pointer; }
+    button[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+    button:focus-visible, input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+    .grid { display: flex; flex-wrap: wrap; gap: 12px; }
+    .card { background: var(--surface); border: 2px solid var(--border); box-shadow: 3px 3px 0 var(--shadow);
+            padding: 8px; display: grid; gap: 6px; justify-items: start; min-width: 120px; }
+    .stage { background: var(--surface-2); padding: 6px; }
+    .meta { font-size: 11px; color: var(--text-muted); }
+    .meta b { color: var(--text); }
+  </style>
+</head>
+<body>
+  <h1>Sprite gallery</h1>
+  <p>Every sprite in <code>assets/manifest.json</code>, animated by the real sprite engine.
+     Drop your own PNG over a file, reload, and check it here. See ASSETS.md.</p>
+  <div class="bar" role="toolbar" aria-label="Gallery options">
+    <span>Scale:</span>
+    <span id="scales"></span>
+    <label><input type="checkbox" id="paused"> pause</label>
+    <label><input type="checkbox" id="missing"> show missing-PNG placeholders</label>
+    <span id="motion" class="meta"></span>
+  </div>
+  <main id="gallery"></main>
+  <script type="module" src="js/sprite-gallery.js"></script>
+</body>
+</html>

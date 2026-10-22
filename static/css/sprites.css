@@ -1,0 +1,46 @@
+/* Sprite engine styles. Custom properties are set per element by js/sprites.js. */
+
+.sprite {
+  display: inline-block;
+  flex: none;
+  width: var(--w, 64px);
+  height: var(--h, 64px);
+  background-repeat: no-repeat;
+  background-position: 0 0;
+  background-size: var(--sheet-w, 100%) var(--h, 100%);
+  image-rendering: pixelated;
+  vertical-align: bottom;
+}
+
+.sprite--anim {
+  animation: sprite-play var(--dur, 1s) steps(var(--frames, 1)) infinite;
+}
+
+@keyframes sprite-play {
+  from { background-position-x: 0; }
+  to { background-position-x: calc(-1 * var(--sheet-w)); }
+}
+
+/* Placeholder block when a PNG (or manifest entry) is missing. */
+.sprite--missing {
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--fallback, #9a948c);
+  box-shadow: inset 0 0 0 2px var(--ink, #2b1d14);
+  color: var(--ink, #2b1d14);
+}
+
+.sprite__label {
+  font: 8px/1.1 var(--font-pixel, monospace);
+  text-align: center;
+  padding: 2px;
+  word-break: break-word;
+  background: rgba(255, 250, 240, 0.85);
+}
+
+img.pixel { image-rendering: pixelated; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sprite--anim { animation: none; }
+}

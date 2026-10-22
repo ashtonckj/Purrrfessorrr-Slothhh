@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API Test Bench</title>
+  <style>
+    body { font-family: monospace; background: #1f1a17; color: #f4ead5; padding: 16px; margin: 0; }
+    button, input { font: inherit; margin: 0 8px 8px 0; }
+    #bars div { margin: 2px 0; white-space: pre; }
+    #log { white-space: pre-wrap; background: #000; padding: 8px; height: 50vh; overflow: auto; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <!-- Developer page: exercises every endpoint without the pixel UI. -->
+  <h1>API test bench</h1>
+  <button id="run">Upload sample + analyze</button>
+  <input type="file" id="file" accept=".csv,.tsv,.xlsx" aria-label="Upload your own file">
+  <button id="chat">Say hi to the sloth</button>
+  <a id="zip" href="#">zip</a> · <a id="nb" href="#">notebook</a>
+  <div id="bars"></div>
+  <div id="log"></div>
+  <script type="module">
+    const log = (...a) => { const el = document.getElementById('log'); el.textContent += a.join(' ') + '\n'; el.scrollTop = 1e9; };
+    const bars = {};
+    let jobId = null;
+
+    function drawBar(cat, pct, msg) {
+      if (!bars[cat]) { bars[cat] = document.createElement('div'); document.getElementById('bars').append(bars[cat]); }
+      const n = Math.round(pct / 5);
+      bars[cat].textContent = `${cat.padEnd(10)} [${'#'.repeat(n).padEnd(20, '.')}] ${String(pct).padStart(3)}%  ${msg}`;
+    }
+
+    async function analyze(file) {
+      const fd = new FormData(); fd.append('file', file);
+      const up = await (await fetch('/api/upload', { method: 'POST', body: fd })).json();
+      log('upload ->', JSON.stringify({ ...up, columns: up.columns?.length + ' cols' }));
+      if (!up.file_id) return;
+      ({ job_id: jobId } = await (await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ file_id: up.file_id }) })).json());
+      log('job', jobId);
+      document.getElementById('zip').href = `/api/export/${jobId}/zip`;
+      document.getElementById('nb').href = `/api/export/${jobId}/notebook`;
+      const es = new EventSource(`/api/jobs/${jobId}/events`);
+      for (const t of ['delegated', 'progress', 'result', 'error', 'done']) {
+        es.addEventListener(t, e => {
+          const d = JSON.parse(e.data);
+          if (t === 'progress') return drawBar(d.cat, d.percent, d.message);
+          if (t === 'result') return log('result', d.cat, d.cards.length, 'cards:', d.cards.map(c => c.title).join(' | '));
+          log(t, e.data);
+          if (t === 'done') es.close();
+        });
+      }
+    }
+
+    document.getElementById('run').onclick = async () => {
+      const blob = await (await fetch('/api/sample.csv')).blob();
+      analyze(new File([blob], 'cafe_sales_sample.csv', { type: 'text/csv' }));
+    };
+    document.getElementById('file').onchange = e => e.target.files[0] && analyze(e.target.files[0]);
+    document.getElementById('chat').onclick = async () => {
+      const r = await (await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, message: 'how is the data health score?' }) })).json();
+      log('sloth:', r.reply);
+    };
+  </script>
+</body>
+</html>

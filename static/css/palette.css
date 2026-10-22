@@ -1,0 +1,38 @@
+/*
+ * The palette. Same colours as PALETTE in tools/generate_placeholders.py,
+ * so placeholder art and UI match. Night theme overrides the UI roles only.
+ */
+:root {
+  /* raw palette */
+  --ink: #2b1d14;
+  --cream: #f4ead5;
+  --cream-shadow: #e3d3b0;
+  --white: #fffaf0;
+  --forest: #2f5d3a;
+  --leaf: #5f8f4e;
+  --mint: #a8c686;
+  --wood: #8a5a3b;
+  --wood-dark: #5c3b26;
+  --tan: #c79a6b;
+  --pink: #e98aa3;
+  --pink-light: #f6c1cc;
+  --red: #c8473d;
+  --yellow: #f2c14e;
+  --blue: #4a6fa5;
+  --grey: #9a948c;
+  --charcoal: #4a4250;
+  --orange: #e08a3c;
+
+  /* UI roles */
+  --bg: var(--cream);
+  --surface: var(--white);
+  --surface-2: var(--cream-shadow);
+  --text: var(--ink);
+  --text-muted: var(--wood-dark);
+  --border: var(--ink);
+  --accent: var(--pink);
+  --primary: var(--forest);
+  --on-primary: var(--white);
+  --focus: var(--blue);
+  --shadow: var(--ink);
+}
