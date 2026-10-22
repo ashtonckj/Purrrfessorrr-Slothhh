@@ -1,6 +1,6 @@
 // Entry point: load sprites + config, then start each module.
 import { getConfig } from './api.js';
-import { on } from './bus.js';
+import { initDrawer } from './drawer.js';
 import { initFlow, greet } from './flow.js';
 import { initHeader, setHeaderSloth } from './header.js';
 import { followSlothMood } from './mood.js';
@@ -22,8 +22,7 @@ async function main() {
   initOffice(document.getElementById('office'));
   followSlothMood(setHeaderSloth);
 
-  // The results drawer arrives in step 5.
-  on('drawer:open', ({ cat }) => console.info('[drawer] open', cat));
+  initDrawer(document.getElementById('office'));
 
   greet();
 }

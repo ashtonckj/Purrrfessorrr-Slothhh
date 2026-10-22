@@ -161,6 +161,33 @@ export const OFFICE = {
   states: { idle: 'idle', work: 'working', done: 'done', error: 'error' },
 };
 
+/** The results drawer. */
+export const DRAWER = {
+  label: 'Results',
+  close: 'Close results',
+  switchTo: name => `Show ${name}'s results`,
+  copyCode: 'Copy code',
+  copied: 'Copied!',
+  copyFailed: 'Copy failed',
+  downloadChart: 'Download chart (PNG)',
+  downloadData: 'Download data (CSV)',
+  downloadZip: 'Download everything (.zip)',
+  exportNotebook: 'Export notebook (.ipynb)',
+  python: 'Python',
+  r: 'R',
+  soon: 'soon',
+  showCode: 'show code',
+  preview: n => `first ${n} rows`,
+  severity: { ok: 'ok', warn: 'check', bad: 'fix me' },
+  empty: {
+    noJob: 'no papers yet... drop a csv in the chat and this cat gets to work.',
+    working: 'still working on it... pawsitively almost done.',
+    error: message => `this cat had an accident: ${message}`,
+    none: 'nothing to report. suspiciously quiet.',
+  },
+  exportsLocked: 'exports unlock when every cat is done',
+};
+
 function lower(s) {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
