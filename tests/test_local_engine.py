@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from backend.engines import lines
 from backend.engines.local import BUILDERS, LocalEngine, analyse
 from backend.files import FileInfo, Selection, inspect
 from backend.jobs import Job
@@ -303,7 +304,7 @@ class LocalEngineTest(unittest.TestCase):
     def test_small_talk_and_honesty(self):
         ask = self._cafe()
         self.assertEqual(ask("hi").who, "sloth")
-        self.assertIn("welcome", ask("thanks!").text)
+        self.assertIn(ask("thanks!").text, lines.CHAT_THANKS)                      # one of the sloth's replies
         self.assertIn("language model", ask("are you an AI?").text)
         self.assertIn("what columns are there?", ask("what can you do?").text)
         self.assertIn("closes eyes", ask("bye").text)
