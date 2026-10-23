@@ -6,6 +6,7 @@
 import * as api from './api.js';
 import * as chat from './chat.js';
 import { codeBlock } from './codebox.js';
+import { renderCard } from './drawer.js';
 import { emit } from './bus.js';
 import { CAT_ICONS, CATS, NAMES, SLOTH, UI } from '../copy.js';
 import { pickColumns } from './picker.js';
@@ -73,10 +74,12 @@ function handleText(text, { tapped = false } = {}) {
         ? say(SLOTH.asking, { cat: catName(cats[0]) })
         : say(SLOTH.askingMany, { cats: new Intl.ListFormat('en').format(cats.map(catName)) }) });
     }
-    for (const [i, { from, reply, choices = [], code }] of answers.entries()) {
+    for (const [i, { from, reply, choices = [], code, card }] of answers.entries()) {
       if (from !== 'sloth' && (i > 0 || typist !== from)) await chat.showTyping(from, 700);
-      chat.addMessage({ from, text: reply, icon: CAT_ICONS[from], extra: code ? [codeBlock(code)] : [],
+      const extra = card ? [renderCard(from, card, true)] : code ? [codeBlock(code)] : [];
+      chat.addMessage({ from, text: reply, icon: CAT_ICONS[from], extra,
         actions: choices.map(label => ({ label, onClick: () => handleText(label, { tapped: true }) })) });
+      if (card) emit('card:update', { cat: from, card });
       if (from !== 'sloth') state.lastCat = from;
     }
   });

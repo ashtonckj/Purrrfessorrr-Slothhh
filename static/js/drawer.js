@@ -65,6 +65,13 @@ export function initDrawer(container) {
     state.results[cat] = cards;
     if (!drawer.hidden && state.cat === cat) show(cat);
   });
+  on('card:update', ({ cat, card }) => {     // the chat re-drew a chart: swap it in, by id
+    const cards = state.results[cat];
+    if (!cards) return;
+    const i = cards.findIndex(c => c.id === card.id);
+    if (i >= 0) cards[i] = card; else cards.unshift(card);
+    if (!drawer.hidden && state.cat === cat) show(cat);
+  });
   on('job:error', ({ cat, message }) => {
     if (!cat) return;
     state.errors[cat] = message;
@@ -148,7 +155,7 @@ function emptyState(cat, text, mood) {
 
 // ------------------------------------------------------------------- card
 
-function renderCard(cat, card, openByDefault) {
+export function renderCard(cat, card, openByDefault) {
   const details = el('details', { class: 'card px-fill' });
   details.open = openByDefault;
 

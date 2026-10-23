@@ -83,6 +83,14 @@ CHAT_WHO = (
     "there is no language model or internet behind us, so i answer from the results... "
     "ask about outliers, missing values, charts, code, columns, or what values a column has..."
 )
+CHAT_WHO_GEMMA = (
+    "i'm a sloth... mostly... the five cats read every row with plain python on this computer and do all the counting. "
+    "a small language model, {model}, runs here too (in ollama) to explain things and help read unusual questions... "
+    "but every number about your data comes from the cats, and nothing leaves your computer..."
+)
+CHAT_GEMMA_DOWN = "(my language model is napping: {problem}. i'm answering from my rule book until it wakes up...)"
+CHAT_GEMMA_GUESS = "i'm not sure i got that... did you mean: '{question}'?"
+CHAT_GEMMA_UNCHECKED = "(the language model's answer quoted numbers i could not check against your data, so here is the rule book instead...)"
 # Keep in step with the caps in analyse() (backend/engines/local.py).
 CHAT_SCORE_HOW = (
     "the data health score is {score}/100... it starts at 100 and loses points for problems, each capped so "

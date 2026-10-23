@@ -41,6 +41,7 @@ class Reply:
     choices: list[str] = field(default_factory=list)   # short follow-ups the UI offers as buttons
     code: dict | None = None                   # {"python": ..., "r": ...} shown in a code box
     followup: bool = False                     # answers a question the cat asked, so the sloth stays quiet
+    card: dict | None = None                   # a card the chat changed (a re-drawn chart), shown in the bubble
 
 
 class Engine(ABC):

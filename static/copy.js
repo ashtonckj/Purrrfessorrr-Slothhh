@@ -47,7 +47,7 @@ export const UI = {
   settings: 'Settings',
   settingsTitle: 'settings',
   engine: 'engine',
-  engines: { local: 'local stats (every row)' },
+  engines: { local: 'local stats (every row)', gemma: 'local stats + gemma (ollama)' },
   sample: 'sample csv',
   sampleLink: 'download sample',
   theme: 'theme',

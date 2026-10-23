@@ -71,8 +71,31 @@ df[[{q(col)}]] <- suppressWarnings(as.numeric(gsub("[$,]", "", as.character(df[[
 
 # ------------------------------------------------------------------- artist
 
-def histogram(col: str) -> str:
-    return f"""hist({number(col)}, breaks = 10, col = "grey80", main = {q(col)}, xlab = {q(col)}, ylab = "count")"""
+def histogram(spec: dict) -> str:
+    """`spec` is the histogram spec from local.histogram_card; equal-width bins from min to max, like matplotlib."""
+    n = spec["bins"]
+    return f"""x <- {number(spec["column"])}
+r <- range(x, na.rm = TRUE)
+hist(x, breaks = if (r[1] < r[2]) seq(r[1], r[2], length.out = {n + 1}) else {n},
+     col = "grey80", main = {q(spec["title"])}, xlab = {q(spec["x_label"])}, ylab = {q(spec["y_label"])})"""
+
+
+def number_summary(cols: list[str]) -> str:
+    return f"""nums <- sapply(df[{vec(cols)}], function(x) suppressWarnings(as.numeric(x)))
+print(round(t(apply(nums, 2, quantile, na.rm = TRUE)), 2))
+print(round(colMeans(nums, na.rm = TRUE), 2))"""
+
+
+def category_counts(cols: list[str]) -> str:
+    return f"""for (col in {vec(cols)}) {{
+  cat("\\n", col, "-", length(unique(na.omit(df[[col]]))), "distinct values\\n")
+  print(head(sort(table(df[[col]]), decreasing = TRUE), 5))
+}}"""
+
+
+def correlations(cols: list[str]) -> str:
+    return f"""nums <- sapply(df[{vec(cols)}], function(x) suppressWarnings(as.numeric(x)))
+print(round(cor(nums, use = "pairwise.complete.obs"), 2))"""
 
 
 def by_category(group: str, num: str | None) -> str:

@@ -32,6 +32,8 @@ OTHER_DATE = re.compile(r"\d{1,2}[/.]\d{1,2}[/.]\d{2,4}$")
 CORR_SAMPLE = 5000   # rows used to rank column pairs by correlation
 SCATTER_POINTS = 300
 MAX_BARS = 10
+HIST_BINS = 10       # the baseline histogram; the user can ask for 2 to MAX_HIST_BINS
+MAX_HIST_BINS = 100
 TOP_VALUES = 50      # most common values kept per column, for chat answers
 VALUE_LINES = 30     # values listed in one chat answer
 
@@ -41,7 +43,8 @@ q = json.dumps  # a column or file name as a Python string literal
 FOLLOW_UP = re.compile(r"\b(it|its|that|those|them|same)\b|^\s*(and|also|what about|how about|why)\b")
 MORE = re.compile(r"\b(more|details?|examples?|show me|which rows)\b")
 SCORE_HOW = re.compile(r"\b(how|why|calculat\w*|comput\w*|formula|mean|made|work|measure\w*|based)\b")
-STAT = re.compile(r"\b(mean|average|median|min|minimum|max|maximum|highest|lowest|biggest|smallest)\b")
+STAT = re.compile(r"\b(mean|average|median|min|minimum|max|maximum|highest|lowest|biggest|smallest|cheapest|priciest|"
+                  r"most expensive|youngest|typical|typically|usual|usually)\b")
 YES = re.compile(r"(yes|yeah|yep|yup|ok|okay|sure|y|please|do it|go ahead)( please)?")
 NO = re.compile(r"(no|nope|nah|n|cancel|never ?mind|forget it)")
 # Words that are not column hints when matching part of a column name.
@@ -53,11 +56,11 @@ HELP_HINT = lines.CHAT_HELP.split("{")[0]
 WANTED = [(stat, re.compile(words)) for stat, words in (
     ("mode", r"most (common|frequent|popular)|\bmode\b"),
     ("rare", r"least (common|frequent|popular)|\brarest\b"),
-    ("min", r"\b(min|minimum|lowest|smallest|earliest|oldest)\b"),
-    ("max", r"\b(max|maximum|highest|largest|biggest|greatest|latest|newest|peak)\b"),
+    ("min", r"\b(min|minimum|lowest|smallest|earliest|oldest|cheapest|youngest|fewest)\b"),
+    ("max", r"\b(max|maximum|highest|largest|biggest|greatest|latest|newest|peak|priciest|most expensive)\b"),
     ("range", r"\brange\b"),
-    ("mean", r"\b(mean|average|avg)\b"),
-    ("median", r"\bmedian\b"),
+    ("mean", r"\b(mean|average|avg|typical|typically|usual|usually)\b"),
+    ("median", r"\b(median|typical|typically|usual|usually)\b"),
     ("std", r"\b(std|standard deviation|spread|variance)\b"),
     ("quartiles", r"\b(quartiles?|iqr|percentiles?)\b"),
     ("sum", r"\bsum\b"),
@@ -65,19 +68,39 @@ WANTED = [(stat, re.compile(words)) for stat, words in (
 STAT_LABEL = {"mode": "most common value", "rare": "least common value", "min": "lowest value", "max": "highest value",
               "range": "range", "mean": "mean", "median": "median", "std": "spread", "quartiles": "quartiles", "sum": "sum"}
 # Questions about what is in the data (the scribe answers them from the facts).
-SAMPLE = re.compile(r"\b(sample|first (few )?rows?|top rows?|few rows|some rows|head|preview|example rows?|look like)\b"
+SAMPLE = re.compile(r"\b(sample|first (few )?rows?|top rows?|few rows|some rows|head|preview|example rows?|look like|"
+                    r"peek|glimpse|(few|some) lines)\b"
                     r"|\bshow (me )?(the )?(data|rows|dataset)\b")
 COLUMNS = re.compile(r"\b(columns?|fields?|headers?|variables?)\b")
 COUNT = re.compile(r"\b(how many|count|number of|how often)\b")
+OTHER_COLUMN = re.compile(r"\b(the )?(other|another|different) (column|one)\b")
+# Chart edits. Only the histogram is a spec the chat can change; other chart kinds are explained, not faked.
+CHART_WORD = re.compile(r"\b(histograms?|distributions?|bins?|buckets?)\b")
+CHART_CHANGE = re.compile(r"\b(change|make|use|set|switch|turn|convert|instead|redraw|re-draw|draw|plot|show|give|"
+                          r"more|fewer|less|rename)\b")
+BIN_COUNT = re.compile(r"\b(\d+)\s*(?:bins?|buckets?|bars?)\b|\b(?:bins?|buckets?)\s*(?:to|=|of|at)?\s*(\d+)\b")
+MORE_BINS = re.compile(r"\b(more|finer|smaller|thinner|narrower)\b(\s+\w+){0,2}\s+(bins?|buckets?|bars?)\b")
+FEWER_BINS = re.compile(r"\b(fewer|less|bigger|wider|coarser)\b(\s+\w+){0,2}\s+(bins?|buckets?|bars?)\b")
+UNDO = re.compile(r"\b(undo|revert|go back|previous (version|one|chart)|original (chart|histogram|version))\b")
+OTHER_KIND = re.compile(r"\b(change|switch|turn|convert|make)\b.*\b(box ?plot|violin|pie|bar chart|line chart|"
+                        r"scatter ?plot|heat ?map)s?\b")
+REGEN = re.compile(r"\b(regenerate|re-generate|redo|updated?|new)\b.*\bcode\b")
+QUESTION = re.compile(r"^\s*(what|why|how|is|are|does|do|which)\b")
+END = r"\s*[\"'“”]?\s*(?=$|[,;.!?]|\s+and\s+(?:the\s+)?(?:x|y|title|bins?|axis)\b)"
+LABELS = {key: re.compile(rf"\b{words}\s*(?:to|as|=|:|into|say|says|read|reads)\s*[\"'“”]?(.+?){END}", re.I)
+          for key, words in (("title", r"title"), ("x_label", r"x[- ]?(?:axis[- ]?label|axis|label)"),
+                             ("y_label", r"y[- ]?(?:axis[- ]?label|axis|label)"))}
+MAX_LABEL = 80
 VALUES = re.compile(r"\b(list|unique|distinct|different|categories|category|kinds?|options|values|names?)\b"
                     r"|\b(what|which)\b[^?]*\b(are there|is there|exist|exists|appear|appears|are in|are included|do we have|do you have)\b")
 
 # Code questions are matched separately (talk.CODE) because they need whole words.
 TOPICS: dict[str, tuple[str, ...]] = {   # checked in this order
-    "detective": ("outlier", "suspicious", "extreme", "duplicate", "dupe", "type problem", "dtype", "data type", "weird", "wrong", "strange"),
+    "detective": ("outlier", "suspicious", "extreme", "duplicate", "dupe", "type problem", "dtype", "data type", "weird", "wrong", "strange",
+                  "fishy", "odd", "unusual", "anomal", "repeated", "twice"),
     "artist": ("chart", "plot", "graph", "visual", "histogram", "distribution", "trend", "correlat",
                "scatter", "relationship", "together"),
-    "janitor": ("missing", "clean", "empty", "null", "blank", "fill", "encod", "preprocess", "impute"),
+    "janitor": ("missing", "clean", "empty", "null", "blank", "fill", "encod", "preprocess", "impute", "gaps", "holes"),
     "scribe": ("summary", "summar", "explain", "describe", "overview", "column", "row", "how many",
                "mean", "average", "median", "min", "max", "inside", "contain", "dataset"),
 }
@@ -131,6 +154,7 @@ class Facts:
     by_group: tuple[Col, list[tuple[str, float, int]]] | None   # group col, [(label, mean or count, n)]
     trend: list[tuple[str, float]]    # (YYYY-MM, sum of focus)
     pair: tuple[Col, Col, float, list[list[float]], bool] | None  # a, b, r, points, sampled
+    corr: list[tuple[str, str, float]]                # every measure pair (a, b, r), strongest first
     hist: tuple[list[str], list[int]] | None
     health_score: int
     head: list[list[str]]             # the first kept rows, in the order of `cols`
@@ -154,6 +178,9 @@ class Convo:
     col: Col | None = None
     pending: Pending | None = None
     last: list[Reply] | None = None   # the last answer, for "say that again"
+    history: list[tuple[str, str]] = field(default_factory=list)   # the last few (question, answer), for a language model
+    charts: list[dict] = field(default_factory=list)   # earlier versions of re-drawn charts, for "undo"
+    known: set[str] = field(default_factory=set)       # words from this file's columns and values, for typo fixes
 
 
 # ------------------------------------------------------------------ engine
@@ -218,22 +245,52 @@ class LocalEngine(Engine):
 
     async def chat(self, job: Job | None, message: str) -> Reply:
         await asyncio.sleep(0.6 * self.speed)   # sloths reply slowly
-        if job is None:                        # nothing to ask about yet: one hint, however many questions
-            return [Reply("sloth", random.choice(lines.CHAT_NO_JOB))]
+        if job is None:
+            return await self._no_file(message)
         replies: list[Reply] = []
         for question in talk.split_questions(message):
-            for reply in _as_list(self._chat(job, question)):
+            for reply in _as_list(await self._answer(job, question)):
                 if any(r.text == reply.text for r in replies):
                     continue                   # two vague questions, one hint is enough
                 if replies and reply.who == replies[-1].who != "sloth":
                     voice = f"{lines.CHAT_VOICE[reply.who]} "      # same cat again: say it once
                     reply = replace(reply, text=reply.text.removeprefix(voice))
                 replies.append(reply)
-        if len(replies) > 1:                   # the "ask about..." hint is only for when nothing else answered
+        if any(r.who != "sloth" for r in replies):   # the "ask about..." hint is only for when no cat answered
             replies = [r for r in replies if not r.text.startswith(HELP_HINT)]
-        if job is not None and job.id in self._convo:
-            self._convo[job.id].last = replies
+        if job.id in self._convo:
+            convo = self._convo[job.id]
+            convo.last = replies
+            convo.history = (convo.history + [(message[:300], " ".join(r.text for r in replies)[:400])])[-3:]
         return replies
+
+    async def _no_file(self, message: str) -> list[Reply]:
+        """Nothing to ask about yet: one hint, however many questions."""
+        return [Reply("sloth", random.choice(lines.CHAT_NO_JOB))]
+
+    async def _answer(self, job: Job, question: str) -> Reply | list[Reply]:
+        """One question. Chart edits are handled here (they re-read a column, so they await); the rest by _chat."""
+        facts = self._facts.get(job.id)
+        if facts is not None:
+            convo = self._convo.setdefault(job.id, Convo())
+            text = self._normalise(facts, convo, question)
+            pending = convo.pending
+            if pending and pending.intent == "histogram":
+                kind, col = _resolve(pending, text, facts)
+                if kind == "col" and col:
+                    convo.pending = None
+                    return replace(await self._chart(job, facts, convo, {"column": col}), followup=True)
+            request = _chart_request(text, question, facts, convo)
+            if request is not None:
+                convo.pending = None
+                return await self._chart(job, facts, convo, request)
+        return self._chat(job, question)
+
+    def _normalise(self, facts: Facts, convo: Convo, message: str) -> str:
+        if not convo.known:
+            convo.known = {w for c in facts.cols for w in re.split(r"[\W_]+", c.name.lower()) if len(w) >= 3}
+            convo.known |= {w for c in facts.cols if c.kind == "text" for v, _ in c.top for w in re.findall(r"[a-z]{3,}", v.lower())}
+        return talk.normalise(message, convo.known)
 
     def _chat(self, job: Job | None, message: str) -> Reply | list[Reply]:
         """Read a message in this order: an open question, small talk, health, code, what is inside the data
@@ -244,7 +301,7 @@ class LocalEngine(Engine):
         if facts is None:
             return Reply("sloth", lines.CHAT_NOT_READY)
         convo = self._convo.setdefault(job.id, Convo())
-        text = message.lower()
+        text = self._normalise(facts, convo, message)
 
         # A cat asked something last turn: this message may be the answer.
         pending, convo.pending = convo.pending, None
@@ -288,6 +345,13 @@ class LocalEngine(Engine):
         open_ended = cat in (None, "scribe")   # not a quality or chart question
         intent = "values" if open_ended and (VALUES.search(text) or COUNT.search(text)) else "profile"
         wanted = _wanted(text)
+        if col is None and OTHER_COLUMN.search(text):
+            options = [c for c in (facts.measures if convo.cat == "detective" else facts.cols) if c is not convo.col]
+            if len(options) == 1:
+                col = options[0]
+            else:
+                return self._ask(convo, convo.cat if convo.cat in ("detective", "janitor") else "scribe", options, None,
+                                 facts, intent, wanted)
         if open_ended and not STAT.search(text):
             if COUNT.search(text) and col is None and re.search(r"\brows?\b", text):
                 left_out = f" ({facts.excluded_rows:,} more were left out by your filter)" if facts.excluded_rows else ""
@@ -387,6 +451,90 @@ class LocalEngine(Engine):
         return reply
 
 
+    async def _chart(self, job: Job, facts: Facts, convo: Convo, request: dict) -> Reply:
+        """Apply a histogram change: check it, update the spec, re-read only that column, rebuild card and code.
+
+        Every field of `request` is checked here, whether it came from the rules or a language model.
+        """
+        voice = lines.CHAT_VOICE["artist"]
+        say = lambda text, **kw: Reply("artist", f"{voice} {text}", **kw)
+        cards = job.results.get("artist")
+        if cards is None:
+            return Reply("artist", lines.CHAT_FAILED if job.finished else lines.CHAT_BUSY["artist"])
+        numbers = [c for c in facts.measures if c.stats] or [c for c in facts.cols if c.kind == "number" and c.stats]
+        old = next((c for c in cards if c.get("spec", {}).get("kind") == "histogram"), None)
+        if request.get("unsupported"):
+            return say(f"i can only re-draw the histogram for now: a {request['unsupported']} is not something my pixel "
+                       "charts can draw yet. the quartiles a box plot shows are one question away: 'quartiles of <column>'.")
+        if request.get("undo"):
+            prev = convo.charts.pop()
+            if old:
+                cards[cards.index(old)] = prev
+            return say(f"back to the earlier version ({prev['spec']['bins']} bins of {prev['spec']['column']}).", card=prev)
+        if request.get("code") and old:
+            return say("the code for the histogram as it is now:", code={**old["code"], "lang": "python"})
+        if request.get("ask_labels"):
+            return say("what should they say? for example: change the title to Daily sales, or the x label to price in dollars.")
+        if not numbers:
+            return say("there are no number columns here, so there is no histogram to draw.")
+        if request.get("ask"):
+            current = old["spec"]["column"] if old else None
+            options = [c for c in numbers if c.name != current]
+            if not options:
+                return say(f"{current} is the only number column, so there is no other histogram to draw.")
+            reply = self._ask(convo, "artist", options, None, facts, "histogram")
+            return replace(reply, text=f"{voice} which column should the histogram show? {', '.join(c.name for c in options[:MAX_CHOICES])}")
+
+        col = request.get("column")
+        if isinstance(col, str):                # a name from a language model: only a real column will do
+            col = next((c for c in facts.cols if c.name.lower() == col.lower()), None)
+            if col is None:
+                return say(f"there is no column called {request['column']!r} in this file.")
+        if col is not None and col.kind != "number":
+            return say(f"{col.name} holds {col.kind}, not numbers, so it has no histogram. "
+                       f"ask 'what values does {col.name} have?' for its counts.")
+        if col is None:
+            col = next((c for c in facts.cols if old and c.name == old["spec"]["column"]), None) or facts.focus or numbers[0]
+        if not col.stats:
+            return say(f"{col.name} has fewer than two numbers, so there is nothing to draw.")
+        spec = dict(old["spec"]) if old and old["spec"]["column"] == col.name else hist_spec(col.name, old["spec"]["bins"] if old else HIST_BINS)
+
+        bins = request.get("bins")
+        if request.get("more"):
+            bins = min(MAX_HIST_BINS, spec["bins"] * 2)
+        elif request.get("fewer"):
+            bins = max(2, spec["bins"] // 2)
+        if bins is not None:
+            if not isinstance(bins, int) or isinstance(bins, bool) or not 2 <= bins <= MAX_HIST_BINS:
+                return say(f"a histogram needs between 2 and {MAX_HIST_BINS} bins; {bins!r} won't do.")
+            spec["bins"] = bins
+        for key in ("title", "x_label", "y_label"):
+            if key in request:
+                label = re.sub(r"\s+", " ", str(request[key])).strip()
+                if not label or len(label) > MAX_LABEL or not label.isprintable():
+                    return say(f"keep the {key.replace('_', ' ')} between 1 and {MAX_LABEL} plain characters.")
+                spec[key] = label
+
+        if old and spec == old["spec"]:
+            return say("the histogram already looks like that:", card=old)
+        xs = await asyncio.to_thread(column_numbers, job.file, job.selection, col.name)
+        hist = _histogram(xs, spec["bins"])
+        if hist is None:
+            return say(f"{col.name} has no numbers to draw.")
+        changed = [f"{k.replace('_', ' ')} {spec[k]!r}" if isinstance(spec[k], str) else f"{spec[k]} bins"
+                   for k in ("column", "bins", "title", "x_label", "y_label") if not old or spec[k] != old["spec"].get(k)]
+        note = "" if spec == hist_spec(col.name) else " (Changed in the chat; the standard version has 10 bins.)"
+        new = histogram_card(spec, hist, col.stats, note)
+        if old:
+            convo.charts = (convo.charts + [old])[-10:]
+            cards[cards.index(old)] = new
+        else:
+            cards.insert(0, new)
+        convo.cat, convo.col = "artist", col
+        return say(f"re-drawn with {', '.join(changed)}. only this chart and its code changed; the rest of the analysis "
+                   "stays as it was." + (" say 'undo' to go back." if old else ""), card=new)
+
+
 def _resolve(pending: Pending, text: str, facts: Facts) -> tuple[str, Col | None]:
     """Read a message as the answer to a cat's question: ("col", c) | ("all", None) | ("no", None) | ("again", None) | ("new", None)."""
     t = text.strip(" .!?")
@@ -396,8 +544,45 @@ def _resolve(pending: Pending, text: str, facts: Facts) -> tuple[str, Col | None
         return "no", None
     if t in ("all", "everything", "overall"):
         return "all", None
+    if any(w in t for cat in ("detective", "artist", "janitor") for w in TOPICS[cat]):
+        return "new", None                     # "any holes in the ratings" is a new question, not just a column name
     col = _mentioned_column(facts, text)
     return ("col", col) if col else ("new", None)
+
+
+def _chart_request(text: str, raw: str, facts: Facts, convo: Convo) -> dict | None:
+    """A request to change the histogram, as plain fields ({"bins": 30}, {"column": col}, {"undo": True}, ...),
+    or None when the message is not one. `raw` is the message as typed, so new titles keep their capitals."""
+    labels = {key: m.group(1).strip() for key, rx in LABELS.items() if (m := rx.search(raw))}
+    if UNDO.search(text) and convo.charts:
+        return {"undo": True}
+    if REGEN.search(text) and convo.charts:
+        return {"code": True}
+    if OTHER_KIND.search(text) and not re.search(r"\bhistogram", text.split(" to ")[-1]):
+        return {"unsupported": OTHER_KIND.search(text).group(2)}
+    bins = BIN_COUNT.search(text)
+    if not labels and CHART_CHANGE.search(text) and re.search(r"\b(title|axis|axes|labels?)\b", text) \
+            and re.search(r"\b(chart|plot|graph|histogram)\b", text):
+        return {"ask_labels": True}            # "change the chart title and axis labels" without saying to what
+    if not labels and not (CHART_WORD.search(text) and (CHART_CHANGE.search(text) or bins)):
+        return None
+    if QUESTION.search(text) and not (bins or labels):
+        return None                            # "what does the histogram show?" is a question about the card
+    request: dict = dict(labels)
+    if bins:
+        request["bins"] = int(bins.group(1) or bins.group(2))
+    elif MORE_BINS.search(text):
+        request["more"] = True
+    elif FEWER_BINS.search(text):
+        request["fewer"] = True
+    named = _mentioned_column(facts, text)
+    if named:
+        request["column"] = named
+    elif OTHER_COLUMN.search(text):
+        request["ask"] = True                  # "for another column": which one?
+    elif re.search(r"\b(this|that|same) (column|one)\b|\bof it\b", text) and convo.col:
+        request["column"] = convo.col
+    return request
 
 
 def _fuzzy_columns(facts: Facts, text: str) -> list[Col]:
@@ -571,10 +756,8 @@ def _missing_action(col: Col, pct: float) -> str:
 # ---------------------------------------------------------------- analysis
 
 
-def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
-    """Read every row of the file (minus the user's exclusions) and work out the facts the cats report."""
-    sel = selection or Selection()
-    keep = sel.columns if sel.columns is not None else list(range(len(info.columns)))
+def _read(info: FileInfo, sel: Selection, keep: list[int]) -> tuple[list[list[str]], list[int], int]:
+    """The rows the user kept (only the `keep` columns), each row's data row number, and how many were excluded."""
     rows: list[list[str]] = []
     excluded_rows = 0
     rules = [(j, _matcher(value)) for j, value in sel.exclude]
@@ -589,6 +772,20 @@ def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
             continue
         rows.append([cells[j] for j in keep])
         row_ids.append(i)
+    return rows, row_ids, excluded_rows
+
+
+def column_numbers(info: FileInfo, selection: Selection, name: str) -> list[float]:
+    """Every number in one column after the user's row filter: what a re-drawn chart needs, without a full analysis."""
+    rows, _, _ = _read(info, selection, [info.columns.index(name)])
+    return [x for (v,) in rows if v.lower() not in NA and (x := _number(v)) is not None]
+
+
+def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
+    """Read every row of the file (minus the user's exclusions) and work out the facts the cats report."""
+    sel = selection or Selection()
+    keep = sel.columns if sel.columns is not None else list(range(len(info.columns)))
+    rows, row_ids, excluded_rows = _read(info, sel, keep)
     if not rows:
         raise ValueError("every row was excluded by the row filter")
     n = len(rows)
@@ -659,8 +856,8 @@ def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
                 months[r[j][:7]] += x
         trend = sorted(months.items())[-36:]
 
-    hist = _histogram(focus) if focus else None
-    pair = _best_pair(measures)
+    hist = _histogram([x for x in focus.numbers if x is not None], HIST_BINS) if focus else None
+    pair, corr = _best_pair(measures)
 
     type_issues = [c for c in cols if c.kind == "number" and c.strays]
     missing_total = sum(c.missing for c in cols)
@@ -676,7 +873,7 @@ def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
         excluded=[(info.columns[j], v) for j, v in sel.exclude], excluded_rows=excluded_rows, measures=measures, groups=groups, date_col=date_col,
         target=target_col, focus=focus, missing_total=missing_total, duplicates=duplicates,
         outlier_counts=outlier_counts, outlier_examples=examples[:20], outlier_rows=len(flagged),
-        type_issues=type_issues, mixed_dates=mixed, by_group=by_group, trend=trend, pair=pair, hist=hist,
+        type_issues=type_issues, mixed_dates=mixed, by_group=by_group, trend=trend, pair=pair, corr=corr, hist=hist,
         health_score=int(round(max(0, min(100, score)))), head=[[c[:40] for c in r] for r in rows[:5]],
     )
 
@@ -710,8 +907,8 @@ def _profile(name: str, values: list[str]) -> Col:
                stats=stats, numbers=numbers if kind == "number" else [])
 
 
-def _histogram(col: Col, bins: int = 10) -> tuple[list[str], list[int]] | None:
-    xs = [x for x in col.numbers if x is not None]
+def _histogram(xs: list[float], bins: int) -> tuple[list[str], list[int]] | None:
+    """Equal-width bins from min to max (the last one includes max), the same bins matplotlib and R draw."""
     if not xs:
         return None
     lo, hi = min(xs), max(xs)
@@ -726,10 +923,10 @@ def _best_pair(measures: list[Col]):
     """The two measures that move together most (Pearson r on up to CORR_SAMPLE rows)."""
     cands = [c for c in measures if c.distinct > 2][:12]
     if len(cands) < 2:
-        return None
+        return None, []
     n = len(cands[0].numbers)
     step = max(1, n // CORR_SAMPLE)
-    best = None
+    best, ranked = None, []
     for i, a in enumerate(cands):
         for b in cands[i + 1:]:
             xy = [(x, y) for x, y in zip(a.numbers[::step], b.numbers[::step]) if x is not None and y is not None]
@@ -737,14 +934,16 @@ def _best_pair(measures: list[Col]):
                 r = statistics.correlation([x for x, _ in xy], [y for _, y in xy])
             except statistics.StatisticsError:
                 continue                       # too few points, or a constant column
+            ranked.append((a.name, b.name, r))
             if best is None or abs(r) > abs(best[2]):
                 best = (a, b, r)
+    ranked.sort(key=lambda t: -abs(t[2]))
     if best is None:
-        return None
+        return None, []
     a, b, r = best
     xy = [[x, y] for x, y in zip(a.numbers, b.numbers) if x is not None and y is not None]
     points = [[round(x, 3), round(y, 3)] for x, y in xy[::max(1, len(xy) // SCATTER_POINTS)]]
-    return a, b, r, points, step > 1
+    return (a, b, r, points, step > 1), ranked
 
 
 # ------------------------------------------------------------------ cards
@@ -836,26 +1035,7 @@ def artist_cards(f: Facts) -> list[dict]:
     cards = []
     a = f.focus
     if a and f.hist:
-        labels, counts = f.hist
-        s = a.stats
-        skew = ("right-skewed: most values are modest, a few are large" if s and s["mean"] > s["median"] + 0.1 * s["std"]
-                else "left-skewed: a long tail of small values" if s and s["mean"] < s["median"] - 0.1 * s["std"]
-                else "fairly symmetric around the middle")
-        cards.append({
-            "id": "artist-distribution",
-            "title": f"Distribution of {a.name}",
-            "description": f"A histogram, because {a.name} is one number per row. It is {skew} "
-                           f"(median {_fmt(s['median'])}, mean {_fmt(s['mean'])})." if s else
-                           f"A histogram, because {a.name} is one number per row.",
-            "chart": {"type": "hist", "title": a.name, "x_label": a.name, "y_label": "count",
-                      "labels": labels, "values": counts},
-            "table": {"columns": ["bin", "count"], "rows": [[b, k] for b, k in zip(labels, counts)]},
-            "code": {"python": f"""import matplotlib.pyplot as plt
-
-df[{q(a.name)}].plot.hist(bins=10, edgecolor="black")
-plt.xlabel({q(a.name)}); plt.ylabel("count")
-plt.show()""", "r": rcode.histogram(a.name)},
-        })
+        cards.append(histogram_card(hist_spec(a.name), f.hist, a.stats))
     if f.by_group:
         g, top = f.by_group
         what = f"mean {a.name}" if a else "rows"
@@ -905,7 +1085,54 @@ plt.show()""", "r": rcode.trend(d, a.name)},
 print(df[[{q(x.name)}, {q(y.name)}]].corr())
 plt.show()""", "r": rcode.scatter(x.name, y.name)},
         })
+    if len(f.corr) > 1:                        # one pair is already the scatter card
+        top = f.corr[:MAX_BARS]
+        names = list(dict.fromkeys(n for a_, b_, _ in f.corr for n in (a_, b_)))
+        cards.append({
+            "id": "artist-correlations",
+            "title": "Which number columns move together",
+            "description": "Pearson r for every pair of number columns (ID-like and yes/no columns left out), strongest "
+                           "first. Near 1 or -1: they rise and fall together; near 0: no straight-line link. "
+                           "A strong r is a pattern, not proof that one causes the other.",
+            # The pixel charts draw bars from 0 up, so the bar is |r| and the label carries the sign.
+            "chart": {"type": "hbar", "title": "strongest correlations", "x_label": "|r|", "y_label": "pair",
+                      "labels": [f"{a_} ~ {b_} ({'+' if r >= 0 else '-'})" for a_, b_, r in top],
+                      "values": [round(abs(r), 2) for _, _, r in top]},
+            "table": {"columns": ["column_a", "column_b", "r"], "rows": [[a_, b_, round(r, 3)] for a_, b_, r in f.corr]},
+            "code": {"python": f"""nums = df[[{', '.join(q(n) for n in names)}]].apply(pd.to_numeric, errors="coerce")
+print(nums.corr().round(2))""", "r": rcode.correlations(names)},
+        })
     return cards
+
+
+def hist_spec(column: str, bins: int = HIST_BINS) -> dict:
+    """The histogram as data. Chat edits change a copy; the chart, table and both code snippets are rebuilt from it."""
+    return {"kind": "histogram", "column": column, "bins": bins, "title": column, "x_label": column, "y_label": "count"}
+
+
+def histogram_card(spec: dict, hist: tuple[list[str], list[int]], stats: dict, note: str = "") -> dict:
+    """The one histogram template: the baseline card and every re-drawn one come from here."""
+    labels, counts = hist
+    name, s = spec["column"], stats
+    skew = ("right-skewed: most values are modest, a few are large" if s and s["mean"] > s["median"] + 0.1 * s["std"]
+            else "left-skewed: a long tail of small values" if s and s["mean"] < s["median"] - 0.1 * s["std"]
+            else "fairly symmetric around the middle")
+    about = f" It is {skew} (median {_fmt(s['median'])}, mean {_fmt(s['mean'])})." if s else ""
+    return {
+        "id": "artist-distribution",
+        "title": f"Distribution of {name}",
+        "description": f"A histogram with {spec['bins']} equal-width bins, because {name} is one number per row.{about}{note}",
+        "chart": {"type": "hist", "title": spec["title"], "x_label": spec["x_label"], "y_label": spec["y_label"],
+                  "labels": labels, "values": counts},
+        "table": {"columns": ["bin", "count"], "rows": [[b, k] for b, k in zip(labels, counts)]},
+        "code": {"python": f"""import matplotlib.pyplot as plt
+
+x = pd.to_numeric(df[{q(name)}], errors="coerce")   # stray text like "N/A" becomes NaN
+x.plot.hist(bins={spec['bins']}, edgecolor="black")
+plt.title({q(spec['title'])}); plt.xlabel({q(spec['x_label'])}); plt.ylabel({q(spec['y_label'])})
+plt.show()""", "r": rcode.histogram(spec)},
+        "spec": spec,
+    }
 
 
 def scribe_cards(f: Facts) -> list[dict]:
@@ -964,7 +1191,85 @@ def scribe_cards(f: Facts) -> list[dict]:
             "description": "\n".join(f"{i}) {n}" for i, n in enumerate(questions, 1)) or "Add a number column and ask again.",
             "chart": None,
         },
+        *_number_summary(f), *_category_counts(f), *_closer_look(f),
     ]
+
+
+def _number_summary(f: Facts) -> list[dict]:
+    nums = [c for c in f.measures if c.stats]
+    if not nums:
+        return []
+    keys = ("min", "q1", "median", "mean", "q3", "max", "std")
+    return [{
+        "id": "scribe-numbers",
+        "title": "Number columns at a glance",
+        "description": "Smallest, quartiles, middle, mean, largest and spread of every number column "
+                       "(ID-like columns left out). Mean far from median means a long tail.",
+        "chart": None,
+        "table": {"columns": ["column", "missing", *keys], "rows": [[c.name, c.missing, *(round(c.stats[k], 3) for k in keys)]
+                                                                for c in nums]},
+        "code": {"python": f"""nums = df[[{', '.join(q(c.name) for c in nums)}]].apply(pd.to_numeric, errors="coerce")
+print(nums.describe().T.round(2))""", "r": rcode.number_summary([c.name for c in nums])},
+    }]
+
+
+def _category_counts(f: Facts) -> list[dict]:
+    text = [c for c in f.cols if c.kind == "text" and not _is_id(c.name)]
+    if not text:
+        return []
+
+    def note(c: Col) -> str:
+        present = f.rows - c.missing
+        return ("one value only: it tells rows apart by nothing" if c.distinct == 1
+                else "almost one value per row: an ID or free text?" if present and c.distinct >= 0.9 * present
+                else "many categories: group the rare ones" if c.distinct > 50 else "")
+    return [{
+        "id": "scribe-categories",
+        "title": "Text columns at a glance",
+        "description": "How many different values each text column has (its cardinality) and the most common ones.",
+        "chart": None,
+        "table": {"columns": ["column", "distinct", "most_common", "note"],
+                  "rows": [[c.name, c.distinct, ", ".join(f"{v} ({n:,})" for v, n in c.top[:3]), note(c)] for c in text]},
+        "code": {"python": f"""for col in [{', '.join(q(c.name) for c in text)}]:
+    print(col, "-", df[col].nunique(), "distinct values")
+    print(df[col].value_counts().head(5), end="\\n\\n")""", "r": rcode.category_counts([c.name for c in text])},
+    }]
+
+
+def _closer_look(f: Facts) -> list[dict]:
+    """Extra analyses the baseline does not run, each suggested only because of a number shown next to it."""
+    rows = max(1, f.rows)
+    found: list[list[str]] = []
+    for c in f.measures:
+        s = c.stats
+        # Pearson's median skewness, 3 * (mean - median) / std, above 0.5: a clear right tail.
+        if s and s["std"] and 3 * (s["mean"] - s["median"]) / s["std"] > 0.5 and s["min"] >= 0:
+            found.append([f"{c.name}: mean {_fmt(s['mean'])} vs median {_fmt(s['median'])}",
+                          f"look at {c.name} on a log scale; the long right tail squashes the histogram"])
+    for a, b, r in f.corr:
+        if abs(r) >= 0.9:
+            found.append([f"{a} and {b}: r = {r:.2f}", "check whether one is computed from the other; keep one for a model"])
+    for c in f.cols:
+        pct = c.missing / rows
+        if 0.05 <= pct <= 0.4:
+            found.append([f"{c.name}: {pct:.0%} empty",
+                          f"compare rows where {c.name} is empty with the rest before filling: gaps that follow a pattern "
+                          "bias the median"])
+    if f.target and f.target.kind == "text" and f.target.top:
+        share = f.target.top[0][1] / max(1, rows - f.target.missing)
+        if share >= 0.8:
+            found.append([f"target {f.target.name}: {share:.0%} are {f.target.top[0][0]!r}",
+                          "imbalanced classes: judge a model by more than accuracy"])
+    if not found:
+        return []
+    return [{
+        "id": "scribe-closer-look",
+        "title": "Worth a closer look (not run)",
+        "description": "Suggestions beyond the standard checks, each made only because of the evidence next to it. "
+                       "None of them were run; they are hypotheses to test, not findings.",
+        "chart": None,
+        "table": {"columns": ["evidence", "suggestion"], "rows": found[:8]},
+    }]
 
 
 def coder_cards(f: Facts) -> list[dict]:
