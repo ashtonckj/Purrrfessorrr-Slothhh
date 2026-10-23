@@ -159,6 +159,32 @@ class LocalEngineTest(unittest.TestCase):
         ask("tell me about customer")
         self.assertEqual(ask("any duplicates?").who, "detective")   # an unrelated question wins over the open one
 
+    def test_cats_read_the_data_back(self):
+        holidays = ["None"] * 30 + ["Labor Day"] * 3 + ["Christmas Day"] * 2
+        ask = self._chat("holiday,temp\n" + "\n".join(f"{h},{270 + i}" for i, h in enumerate(holidays)) + "\n")
+        ask("any outliers in temp?")                       # an earlier detective turn must not hijack the next question
+        listing = ask("owh, what holidays are there in the dataset, could you list them out for me")
+        self.assertEqual(listing.who, "scribe")
+        self.assertIn("holiday has 3 distinct values", listing.text)
+        self.assertIn("'None' (30)", listing.text)
+        self.assertIn("'Labor Day' (3)", listing.text)
+        self.assertIn("'Christmas Day' (2)", listing.text)
+        again = ask("and what values does it have?")       # "it" is the holiday column from the last answer
+        self.assertIn("holiday has 3 distinct values", again.text)
+        self.assertIn("appears 2 times in holiday", ask("how many Christmas Day are there?").text)
+        columns = ask("what columns are there?")
+        self.assertIn("holiday (text)", columns.text)
+        self.assertIn("temp (number)", columns.text)
+        self.assertEqual(columns.choices, ["holiday", "temp"])
+        rows = ask("show me some rows")
+        self.assertIn("row 1: holiday=None, temp=270", rows.text)
+        self.assertEqual(ask("what types of holiday are there?").who, "scribe")   # "types" is not a type problem
+
+    def test_listing_values_after_a_vague_column_asks_first(self):
+        ask = self._chat("weather_main,weather_description\nClear,sky\nClear,sunny\nRain,wet\n")
+        self.assertEqual(ask("list the weather").choices[-1], "all")
+        self.assertIn("weather_main has 2 distinct values", ask("weather_main").text)   # the list intent survives the question
+
     def test_cats_list_ambiguous_columns(self):
         ask = self._chat("weather_main,weather_description,n\nClear,sky,1\nRain,wet,2\n")
         many = ask("tell me about weather")

@@ -80,7 +80,9 @@ python3 -m venv .venv
    from the results. Cats remember the last topic, so "and total?" or "is it
    missing anywhere?" work as follow-ups, and when a question is vague (a
    partial column name, an average with no column) the cat asks you to confirm,
-   with tap-to-answer buttons.
+   with tap-to-answer buttons. You can also ask what is inside: "what holidays
+   are there?" (lists a column's values with counts), "what columns are there?",
+   "show me some rows", "how many Labor Day".
 
 Top-right buttons: sound (off by default), day/night theme, settings.
 

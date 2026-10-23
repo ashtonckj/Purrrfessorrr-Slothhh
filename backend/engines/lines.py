@@ -76,8 +76,9 @@ CHAT_ASK_MANY = "which one did you mean: {names}{more}? tap one, or say all."
 CHAT_ASK_STAT = "which column? i would guess {name} ({why})... say yes, or name another."
 CHAT_NOT_READY = "the cats are still reading the file... ask me again in a moment..."
 CHAT_HELP = (
-    "mmh... i only delegate... ask the cats about outliers, duplicates, missing values, "
-    "charts, correlations, code or a model... or name a column, like '{example}'..."
+    "mmh... i only delegate... ask the cats about outliers, duplicates, missing values, charts, "
+    "correlations, code or a model... or ask what is inside: 'what columns are there?', "
+    "'show some rows', 'what values does {example} have?'..."
 )
 CHAT_HEALTH: str = "the health score is {score}... {mood}..."
 HEALTH_MOOD = {
