@@ -31,6 +31,8 @@ export const ROLES = {
   janitor: 'preprocessing and cleaning',
 };
 
+export const CAT_IDS = Object.keys(ROLES);
+
 /** Icon shown next to each cat's chat messages (manifest ids). */
 export const CAT_ICONS = {
   detective: 'icon_magnifier',
@@ -104,11 +106,11 @@ export const SLOTH = {
     'another file... okaaay... cats... again...',
     'more work... not for me though...',
   ],
-  health: ({ score }) => {
-    if (score > 80) return [`data health: ${score}... nice and tidy... i approve... lazily...`];
-    if (score < 40) return [`data health: ${score}...\nugh... it's a mess... the janitor cat has notes...`];
-    return [`data health: ${score}...\nnot bad... not great... very... average... like my naps...`];
-  },
+  health: ({ score, mood }) => ({
+    happy: `data health: ${score}... nice and tidy... i approve... lazily...`,
+    grumpy: `data health: ${score}...\nugh... it's a mess... the janitor cat has notes...`,
+    idle: `data health: ${score}...\nnot bad... not great... very... average... like my naps...`,
+  })[mood],
   allDone: 'everyone is done... click a cat or a results button to see what they found...',
   catError: ({ cat }) => `the ${cat} cat... had a little accident... the others are fine...`,
   wrongType: ({ name }) => [`${name}...? i only eat csv... tsv... and xlsx... sometimes...`],
@@ -138,7 +140,7 @@ export const OFFICE = {
     start: ['papers... go...', 'okaaay... delegating...'],
     working: 'zzz...',
     health: ({ score }) => `health: ${score}/100`,
-    mood: ({ score }) => (score > 80 ? 'tidy... nice...' : score < 40 ? 'ugh... messy...' : 'meh... okay...'),
+    mood: { happy: 'tidy... nice...', grumpy: 'ugh... messy...', idle: 'meh... okay...' },
   },
   sign: 'NAP\nMORE',
   waiting: 'waiting for papers...',

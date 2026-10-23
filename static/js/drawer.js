@@ -3,7 +3,7 @@
  * accordion "dropdowns" (chart, data preview, code, downloads).
  * Opened by the `drawer:open { cat }` bus event (cat click or Results button).
  */
-import { CAT_ICONS, DRAWER, NAMES, ROLES } from '../copy.js';
+import { CAT_ICONS, CAT_IDS, DRAWER, NAMES, ROLES } from '../copy.js';
 import * as api from './api.js';
 import { emit, on } from './bus.js';
 import { drawChart } from './chart.js';
@@ -11,7 +11,6 @@ import { createSprite } from './sprites.js';
 import { highlight } from './syntax.js';
 import { el, icon, prefersReducedMotion } from './ui.js';
 
-const CAT_IDS = ['detective', 'artist', 'scribe', 'coder', 'janitor'];
 const PREVIEW_ROWS = 5;
 
 const state = {

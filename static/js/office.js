@@ -3,13 +3,12 @@
  * and flying papers. Driven entirely by bus events (see bus.js), so it does
  * not care whether the data comes from the mock or the real engine.
  */
-import { NAMES, OFFICE, ROLES } from '../copy.js';
+import { CAT_IDS, NAMES, OFFICE, ROLES } from '../copy.js';
 import { emit, on } from './bus.js';
 import { followSlothMood } from './mood.js';
 import { createSprite, setScale, setSprite } from './sprites.js';
-import { el, prefersReducedMotion, say } from './ui.js';
+import { el, moodFor, prefersReducedMotion, say } from './ui.js';
 
-const CAT_IDS = ['detective', 'artist', 'scribe', 'coder', 'janitor'];
 const SEGMENTS = 20;
 
 let room;
@@ -271,8 +270,8 @@ function setCatState(cat, state, message) {
 function onDone({ health_score: score }) {
   boss.stackWrap.hidden = true;
   if (score == null) return;
-  const mood = score > 80 ? 'happy' : score < 40 ? 'grumpy' : 'idle';
-  speak(say(OFFICE.bubble.mood, { score }), score, mood);
+  const mood = moodFor(score);
+  speak(OFFICE.bubble.mood[mood], score, mood);
 }
 
 function updateLabel(cat) {

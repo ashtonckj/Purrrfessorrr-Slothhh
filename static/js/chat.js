@@ -2,11 +2,9 @@
  * Chat panel: rendering only (bubbles, typing dots, input, drag & drop).
  * The conversation logic lives in flow.js.
  */
-import { NAMES, STATUS, UI } from '../copy.js';
+import { CAT_IDS, NAMES, STATUS, UI } from '../copy.js';
 import { createSprite } from './sprites.js';
-import { el, icon, formatBytes, formatNumber, prefersReducedMotion, sleep, timeNow } from './ui.js';
-
-const CAT_IDS = ['detective', 'artist', 'scribe', 'coder', 'janitor']; // name colours: chat.css
+import { el, icon, formatBytes, formatNumber, moodFor, prefersReducedMotion, sleep, timeNow } from './ui.js';
 
 let root, log, field, statusEl, fileInput;
 let lastSender = null;
@@ -184,7 +182,7 @@ export function addFileMessage(file) {
 
 /** Health meter node for the sloth's verdict bubble. */
 export function healthMeter(score) {
-  const color = score > 80 ? 'var(--leaf)' : score < 40 ? 'var(--red)' : 'var(--yellow)';
+  const color = { happy: 'var(--leaf)', grumpy: 'var(--red)', idle: 'var(--yellow)' }[moodFor(score)];
   const on = Math.round(score / 10);
   return el('div', { class: 'health', role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': '100',
     'aria-valuenow': String(score), 'aria-label': UI.health },

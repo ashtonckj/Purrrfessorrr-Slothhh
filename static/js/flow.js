@@ -7,7 +7,7 @@ import * as api from './api.js';
 import * as chat from './chat.js';
 import { emit } from './bus.js';
 import { CAT_ICONS, CATS, NAMES, SLOTH, UI } from '../copy.js';
-import { formatNumber, prefersReducedMotion, say, sleep } from './ui.js';
+import { formatNumber, moodFor, prefersReducedMotion, say, sleep } from './ui.js';
 
 const ACCEPTED = ['.csv', '.tsv', '.xlsx'];
 
@@ -87,12 +87,17 @@ async function handleFiles(files) {
   try {
     await runFile(file);
   } catch (err) {
-    state.busy = false;
-    chat.setBusy(false);
-    chat.setStatus('online');
+    idle();
     emit('sloth:mood', { mood: 'grumpy' });
     queue(() => slothSays(say(SLOTH.uploadFailed, { reason: err.message ?? 'no idea why' })));
   }
+}
+
+/** Ready for the next file. */
+function idle() {
+  state.busy = false;
+  chat.setBusy(false);
+  chat.setStatus('online');
 }
 
 async function runFile(file) {
@@ -132,9 +137,7 @@ function listen(jobId) {
     emit(`job:${type}`, data);
     queue(() => onJobEvent(type, data));
   }, () => queue(async () => {
-    state.busy = false;
-    chat.setBusy(false);
-    chat.setStatus('online');
+    idle();
     await slothSays(say(SLOTH.connectionLost));
   }));
 
@@ -157,22 +160,21 @@ function listen(jobId) {
       emit('sound', { name: 'done' });
     } else if (type === 'error') {
       if (data.cat) {
-          chat.addMessage({ from: data.cat, text: say(CATS.error, { message: data.message }), icon: 'icon_warning' });
+        chat.addMessage({ from: data.cat, text: say(CATS.error, { message: data.message }), icon: 'icon_warning' });
         emit('sound', { name: 'error' });
         await slothSays(say(SLOTH.catError, { cat: NAMES[data.cat].split(' ')[0].toLowerCase() }));
       } else {
         await slothSays(data.message);
       }
     } else if (type === 'done') {
-      state.busy = false;
-      chat.setBusy(false);
       const score = data.health_score;
       if (score != null) {
-        await slothSays(say(SLOTH.health, { score }), [chat.healthMeter(score)]);
-        emit('sloth:mood', { mood: score > 80 ? 'happy' : score < 40 ? 'grumpy' : 'idle' });
+        const mood = moodFor(score);
+        await slothSays(say(SLOTH.health, { score, mood }), [chat.healthMeter(score)]);
+        emit('sloth:mood', { mood });
       }
       await slothSays(say(SLOTH.allDone));
-      chat.setStatus('online');
+      idle();
     }
   }
 }
