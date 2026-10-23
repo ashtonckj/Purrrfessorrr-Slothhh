@@ -64,6 +64,9 @@ python3 -m venv .venv
 
 1. Drag a `.csv`, `.tsv` or `.xlsx` onto the chat (or click the paperclip).
    No data at hand? Settings (gear icon) > **download sample**.
+   A dialog previews the first rows: untick columns to skip, pick a **target**
+   (the column you want to predict), and add rules like "exclude rows where
+   store is Campus". Then press **start the cats**.
 2. The sloth replies, then papers fly to the five desks: one paper per 1,000
    rows, capped at 30 on screen (the cats still read every row).
 3. Watch the progress bars. When a cat finishes, click it (or its **Results**
@@ -143,6 +146,7 @@ static/
     chat.js             chat panel rendering, drag & drop
     office.js           office scene: sloth, desks, bars, flying papers
     drawer.js           results drawer: cards, downloads
+    picker.js           upload dialog: columns, target, row filter
     chart.js            pixel charts on canvas
     syntax.js           tiny syntax highlighter
     sprites.js          sprite engine (reads the manifest)

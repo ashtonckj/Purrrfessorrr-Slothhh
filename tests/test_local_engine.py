@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from backend.engines.local import BUILDERS, LocalEngine, analyse
-from backend.files import FileInfo, inspect
+from backend.files import FileInfo, Selection, inspect
 from backend.jobs import Job
 from backend.sample_data import sample_csv
 
@@ -50,6 +50,27 @@ class LocalEngineTest(unittest.TestCase):
                 self.assertTrue(card["id"] and card["title"])
                 chart = card.get("chart") or {}
                 self.assertLessEqual(len(chart.get("labels", [])), 10)
+
+    def test_selection_and_row_filter(self):
+        path = self.dir / "cafe.csv"
+        path.write_bytes(sample_csv())
+        info = _file(path)
+        store, quantity, total = (info.columns.index(c) for c in ("store", "quantity", "total"))
+        everything = analyse(info)
+        sel = Selection(columns=[store, quantity, total], target=total, exclude=[(store, "Campus")])
+        facts = analyse(info, sel)
+        self.assertEqual([c.name for c in facts.cols], ["store", "quantity", "total"])
+        self.assertEqual(facts.target.name, "total")
+        self.assertEqual(facts.focus.name, "total")
+        self.assertEqual(facts.rows + facts.excluded_rows, everything.rows)
+        self.assertGreater(facts.excluded_rows, 0)
+        self.assertNotIn("Campus", dict(facts.cols[0].top))
+        load = BUILDERS["coder"](facts)[0]["code"]["python"]
+        self.assertIn('!= "Campus"', load)
+        self.assertIn('df = df[["store", "quantity", "total"]]', load)
+        with self.assertRaises(ValueError):
+            analyse(info, Selection(exclude=[(store, v) for v in ("Campus", "Riverside", "Old Town", "Harbour", "Station",
+                                                                     "CAMPUS", "RIVERSIDE", "OLD TOWN", "HARBOUR", "STATION")]))
 
     def test_chat_routes_to_the_right_cat(self):
         path = self.dir / "cafe.csv"

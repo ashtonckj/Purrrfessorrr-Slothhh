@@ -94,6 +94,8 @@ export const SLOTH = {
   receivedTiny: ({ name, rows }) => [
     `${name}... only ${rows} rows... cute... i could almost do this myself... almost...`,
   ],
+  pick: 'pick the columns... and a target, if you have one in mind...\nor just press start... i trust you... mostly...',
+  cancelled: 'okaaay... no work then... my favourite outcome...',
   delegate: [
     'cats... work... i will supervise... from here...',
     'okaaay... passing the jobs to the cats...\nwake me when it is done...',
@@ -147,6 +149,26 @@ export const OFFICE = {
   error: 'confused...',
   catLabel: ({ name, role, state, percent }) => `${name}, ${role}. ${state}${percent != null ? `, ${percent}%` : ''}. Open results.`,
   states: { idle: 'idle', work: 'working', done: 'done', error: 'error' },
+};
+
+/** The upload dialog: columns, target, rows to leave out. */
+export const PICKER = {
+  title: name => `what should the cats read in ${name}?`,
+  columns: n => `columns (${n})`,
+  all: 'all',
+  none: 'none',
+  target: 'target (what you want to predict)',
+  noTarget: '(no target)',
+  rows: 'rows to leave out',
+  addRule: '+ exclude rows where...',
+  ruleLead: 'exclude rows where',
+  ruleColumn: 'Column',
+  ruleIs: 'is',
+  ruleValue: 'value (empty = blank cells)',
+  ruleRemove: 'Remove this rule',
+  preview: n => `first ${n} rows (struck out = left out)`,
+  cancel: 'cancel',
+  start: 'start the cats',
 };
 
 /** The results drawer. */

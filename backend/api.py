@@ -13,7 +13,7 @@ from .cats import CATS
 from .config import settings
 from .engines import get_engine
 from .exporters import build_notebook, build_zip
-from .files import get_file, save_upload
+from .files import Selection, get_file, save_upload
 from .jobs import Job, jobs
 from .sample_data import sample_csv
 
@@ -21,8 +21,16 @@ router = APIRouter(prefix="/api")
 engine = get_engine()
 
 
+class ExcludeRule(BaseModel):
+    column: int
+    value: str = Field(max_length=1000)
+
+
 class AnalyzeIn(BaseModel):
     file_id: str
+    columns: list[int] | None = None      # None = all
+    target: int | None = None
+    exclude: list[ExcludeRule] = Field(default_factory=list, max_length=50)
 
 
 class ChatIn(BaseModel):
@@ -40,6 +48,20 @@ def _job_or_404(job_id: str) -> Job:
 def _safe_stem(filename: str) -> str:
     stem = filename.rsplit(".", 1)[0]
     return re.sub(r"[^A-Za-z0-9_-]+", "_", stem)[:60] or "analysis"
+
+
+def _selection(body: AnalyzeIn, cols: int) -> Selection:
+    def check(i: int) -> int:
+        if not 0 <= i < cols:
+            raise HTTPException(422, f"column {i} does not exist (the file has {cols})")
+        return i
+
+    columns = None if body.columns is None else sorted({check(i) for i in body.columns})
+    if columns == []:
+        raise HTTPException(422, "pick at least one column")
+    if body.target is not None and check(body.target) not in (columns or [body.target]):
+        raise HTTPException(422, "the target must be one of the chosen columns")
+    return Selection(columns, body.target, [(check(r.column), r.value.strip()) for r in body.exclude])
 
 
 @router.get("/config")
@@ -63,7 +85,7 @@ async def analyze(body: AnalyzeIn) -> dict:
     info = get_file(body.file_id)
     if info is None:
         raise HTTPException(404, "no such file (upload it again)")
-    job = jobs.create(info)
+    job = jobs.create(info, _selection(body, info.cols))
 
     async def runner() -> None:
         try:

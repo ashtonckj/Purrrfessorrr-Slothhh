@@ -7,6 +7,7 @@ import * as api from './api.js';
 import * as chat from './chat.js';
 import { emit } from './bus.js';
 import { CAT_ICONS, CATS, NAMES, SLOTH, UI } from '../copy.js';
+import { pickColumns } from './picker.js';
 import { formatNumber, moodFor, prefersReducedMotion, say, sleep } from './ui.js';
 
 const ACCEPTED = ['.csv', '.tsv', '.xlsx'];
@@ -119,10 +120,17 @@ async function runFile(file) {
     if (!first) await slothSays(say(SLOTH.again));
     else if (info.rows < 1000) await slothSays(say(SLOTH.receivedTiny, { name: info.filename, rows }));
     else await slothSays(say(SLOTH.received, { name: info.filename, rows }));
-    await slothSays(say(SLOTH.delegate));
+    await slothSays(say(SLOTH.pick));
   });
 
-  const { job_id: jobId } = await api.analyze(info.file_id);
+  const choice = await pickColumns(info);
+  if (!choice) {
+    idle();
+    await queue(() => slothSays(say(SLOTH.cancelled)));
+    return;
+  }
+  await queue(() => slothSays(say(SLOTH.delegate)));
+  const { job_id: jobId } = await api.analyze(info.file_id, choice);
   state.jobId = jobId;
   chat.setStatus('delegating');
   emit('job:start', { jobId, file: info });

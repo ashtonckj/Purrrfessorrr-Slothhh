@@ -12,7 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
 
-from .files import FileInfo
+from .files import FileInfo, Selection
 
 
 @dataclass
@@ -26,6 +26,7 @@ class Event:
 class Job:
     id: str
     file: FileInfo
+    selection: Selection = field(default_factory=Selection)
     events: list[Event] = field(default_factory=list)
     results: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     health_score: int | None = None
@@ -70,8 +71,8 @@ class JobStore:
         self._jobs: dict[str, Job] = {}
         self._tasks: set[asyncio.Task] = set()
 
-    def create(self, file: FileInfo) -> Job:
-        job = Job(id=uuid.uuid4().hex[:12], file=file)
+    def create(self, file: FileInfo, selection: Selection) -> Job:
+        job = Job(id=uuid.uuid4().hex[:12], file=file, selection=selection)
         self._jobs[job.id] = job
         return job
 

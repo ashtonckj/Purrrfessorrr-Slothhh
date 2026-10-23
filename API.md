@@ -13,8 +13,8 @@ Cat ids used everywhere: `detective`, `artist`, `scribe`, `coder`, `janitor`.
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | GET | `/api/config` | | `{ engine, max_upload_mb, cats: {id: role} }` |
-| POST | `/api/upload` | multipart, field `file` (`.csv`, `.tsv`, `.xlsx`) | `{ file_id, filename, rows, cols, size_bytes, columns: [...] }` |
-| POST | `/api/analyze` | `{ "file_id": "..." }` | `{ job_id }` (work starts in the background) |
+| POST | `/api/upload` | multipart, field `file` (`.csv`, `.tsv`, `.xlsx`) | `{ file_id, filename, rows, cols, size_bytes, columns: [...], preview: [[...]] }` (first 8 rows as text) |
+| POST | `/api/analyze` | `{ "file_id": "...", "columns": [0, 2] or null, "target": 2 or null, "exclude": [{ "column": 1, "value": "x" }] }` | `{ job_id }` (work starts in the background). Columns are indexes into `columns`; omitted = all. `exclude` drops rows whose cell (trimmed text) equals `value`. |
 | GET | `/api/jobs/{job_id}/events` | | Server-Sent Events stream, see below |
 | GET | `/api/results/{job_id}/{cat}` | | `{ cat, ready, cards: [Card] }` |
 | GET | `/api/export/{job_id}/zip` | | `.zip` download (results.json, notebook, per card: README.md, data.csv, chart.json, code.py) |

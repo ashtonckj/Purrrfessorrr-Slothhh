@@ -22,6 +22,7 @@ csv.field_size_limit(2**31 - 1)
 
 ALLOWED_EXTENSIONS = {".csv", ".tsv", ".xlsx"}
 CHUNK = 1024 * 1024
+PREVIEW_ROWS = 8
 
 
 @dataclass
@@ -33,6 +34,7 @@ class FileInfo:
     rows: int = 0
     cols: int = 0
     columns: list[str] = field(default_factory=list)
+    preview: list[list[str]] = field(default_factory=list)   # first data rows, as text
 
     def public(self) -> dict:
         """Shape returned by POST /api/upload."""
@@ -43,7 +45,16 @@ class FileInfo:
             "cols": self.cols,
             "size_bytes": self.size_bytes,
             "columns": self.columns,
+            "preview": self.preview,
         }
+
+
+@dataclass
+class Selection:
+    """What the user chose in the upload dialog. Column numbers index FileInfo.columns."""
+    columns: list[int] | None = None                       # None = every column
+    target: int | None = None
+    exclude: list[tuple[int, str]] = field(default_factory=list)   # drop rows where column == value
 
 
 _files: dict[str, FileInfo] = {}
@@ -95,9 +106,19 @@ def inspect(info: FileInfo) -> None:
         raise HTTPException(422, "that file looks empty")
     info.columns = [str(c).strip() or f"column_{i + 1}" for i, c in enumerate(header)]
     info.cols = len(info.columns)
-    info.rows = sum(1 for _ in rows)
+    info.preview = []
+    info.rows = 0
+    for row in rows:
+        if info.rows < PREVIEW_ROWS:
+            info.preview.append([cell_text(v) for v in row[:info.cols]])
+        info.rows += 1
     if info.rows == 0:
         raise HTTPException(422, "that file has a header but no data rows")
+
+
+def cell_text(value) -> str:
+    """A cell as the text the user sees (and filters on)."""
+    return "" if value is None else str(value).strip()
 
 
 def iter_rows(info: FileInfo) -> Iterator[list]:

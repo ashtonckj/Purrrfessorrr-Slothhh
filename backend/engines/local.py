@@ -18,7 +18,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
 from ..cats import CAT_IDS, paper_total, split_papers
-from ..files import FileInfo, iter_rows
+from ..files import FileInfo, Selection, cell_text, iter_rows
 from ..jobs import Job
 from . import lines
 from .base import Engine
@@ -80,8 +80,11 @@ class Col:
 @dataclass
 class Facts:
     filename: str
-    rows: int
-    cols: list[Col]
+    rows: int                         # after the user's row filter
+    cols: list[Col]                   # the chosen columns
+    all_columns: int                  # columns in the file
+    excluded: list[tuple[str, str]]   # (column, value) rules the user set
+    excluded_rows: int
     measures: list[Col]
     groups: list[Col]                 # text columns with a handful of categories
     date_col: Col | None
@@ -117,7 +120,7 @@ class LocalEngine(Engine):
             await job.emit("delegated", cat=cat, paper_count=count)
 
         # Read the file while the papers fly to the desks.
-        facts, _ = await asyncio.gather(asyncio.to_thread(analyse, info),
+        facts, _ = await asyncio.gather(asyncio.to_thread(analyse, info, job.selection),
                                         asyncio.sleep(2.5 * self.speed))
         self._facts[job.id] = facts
 
@@ -241,33 +244,43 @@ def _missing_action(col: Col, pct: float) -> str:
 # ---------------------------------------------------------------- analysis
 
 
-def analyse(info: FileInfo, target: str | None = None) -> Facts:
-    """Read every row of the file and work out the facts the cats report."""
-    width = len(info.columns)
+def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
+    """Read every row of the file (minus the user's exclusions) and work out the facts the cats report."""
+    sel = selection or Selection()
+    keep = sel.columns if sel.columns is not None else list(range(len(info.columns)))
     rows: list[list[str]] = []
+    excluded_rows = 0
+    row_ids: list[int] = []                    # each kept row's data row number in the file
     # shortcut: whole file held in memory; stream it in two passes if huge uploads matter.
     for i, raw in enumerate(iter_rows(info)):
         if i == 0:
             continue                           # header
-        cells = [("" if v is None else str(v)).strip() for v in raw[:width]]
-        rows.append(cells + [""] * (width - len(cells)))
+        cells = [cell_text(raw[j]) if j < len(raw) else "" for j in range(len(info.columns))]
+        if any(cells[j] == value for j, value in sel.exclude):
+            excluded_rows += 1
+            continue
+        rows.append([cells[j] for j in keep])
+        row_ids.append(i)
+    if not rows:
+        raise ValueError("every row was excluded by the row filter")
     n = len(rows)
+    width = len(keep)
 
-    cols = [_profile(name, [r[j] for r in rows]) for j, name in enumerate(info.columns)]
+    cols = [_profile(info.columns[j], [r[k] for r in rows]) for k, j in enumerate(keep)]
     index = {id(c): j for j, c in enumerate(cols)}
     measures = [c for c in cols if c.is_measure]
     groups = sorted((c for c in cols if c.kind == "text" and not _is_id(c.name) and 2 <= c.distinct <= 50),
                     key=lambda c: abs(c.distinct - 6))
     date_col = next((c for c in cols if c.kind == "date"), None)
-    target_col = next((c for c in cols if c.name == target), None)
+    target_col = cols[keep.index(sel.target)] if sel.target in keep else None
     focus = target_col if target_col and target_col.is_measure else (measures[0] if measures else None)
 
     seen: dict[tuple, int] = {}
     duplicates = []
-    for i, r in enumerate(rows, 1):
+    for i, r in enumerate(rows):
         first = seen.setdefault(tuple(r), i)
         if first != i:
-            duplicates.append((first, i))
+            duplicates.append((row_ids[first], row_ids[i]))
     del seen
 
     outlier_counts, examples, flagged = {}, [], set()
@@ -277,13 +290,13 @@ def analyse(info: FileInfo, target: str | None = None) -> Facts:
             continue                           # flags and constants have no "usual range"
         iqr = s["q3"] - s["q1"]
         lo, hi = s["q1"] - 1.5 * iqr, s["q3"] + 1.5 * iqr
-        hits = [i for i, x in enumerate(c.numbers, 1) if x is not None and (x < lo or x > hi)]
+        hits = [i for i, x in enumerate(c.numbers) if x is not None and (x < lo or x > hi)]
         if hits:
             outlier_counts[c.name] = len(hits)
             flagged.update(hits)
             for i in hits:
-                x = c.numbers[i - 1]
-                examples.append([i, c.name, x, round((x - s["mean"]) / s["std"], 1) if s["std"] else 0.0])
+                x = c.numbers[i]
+                examples.append([row_ids[i], c.name, x, round((x - s["mean"]) / s["std"], 1) if s["std"] else 0.0])
     examples.sort(key=lambda e: -abs(e[3]))
 
     mixed = 0
@@ -331,7 +344,8 @@ def analyse(info: FileInfo, target: str | None = None) -> Facts:
     for c in cols:
         c.numbers = []                         # facts are kept for chat; the raw values are not
     return Facts(
-        filename=info.filename, rows=n, cols=cols, measures=measures, groups=groups, date_col=date_col,
+        filename=info.filename, rows=n, cols=cols, all_columns=len(info.columns),
+        excluded=[(info.columns[j], v) for j, v in sel.exclude], excluded_rows=excluded_rows, measures=measures, groups=groups, date_col=date_col,
         target=target_col, focus=focus, missing_total=missing_total, duplicates=duplicates,
         outlier_counts=outlier_counts, outlier_examples=examples[:20], outlier_rows=len(flagged),
         type_issues=type_issues, mixed_dates=mixed, by_group=by_group, trend=trend, pair=pair, hist=hist,
@@ -409,10 +423,16 @@ def _best_pair(measures: list[Col]):
 
 
 def _loader(f: Facts) -> str:
+    """`df = ...` plus the user's row filter and column choice."""
     name = f.filename.lower()
-    if name.endswith(".xlsx"):
-        return f"pd.read_excel({q(f.filename)})"
-    return f"pd.read_csv({q(f.filename)}{', sep=chr(9)' if name.endswith('.tsv') else ''})"
+    read = (f"pd.read_excel({q(f.filename)})" if name.endswith(".xlsx")
+            else f"pd.read_csv({q(f.filename)}{', sep=chr(9)' if name.endswith('.tsv') else ''})")
+    code = f"df = {read}"
+    for col, value in f.excluded:
+        code += f"\ndf = df[df[{q(col)}].astype(str).str.strip() != {q(value)}]"
+    if len(f.cols) < f.all_columns:
+        code += f"\ndf = df[[{', '.join(q(c.name) for c in f.cols)}]]"
+    return code
 
 
 def detective_cards(f: Facts) -> list[dict]:
@@ -433,7 +453,7 @@ def detective_cards(f: Facts) -> list[dict]:
         if f.outlier_examples else None,
         "code": {"python": f"""import pandas as pd
 
-df = {_loader(f)}
+{_loader(f)}
 s = df[{q(num)}]
 q1, q3 = s.quantile([0.25, 0.75])
 iqr = q3 - q1
@@ -587,6 +607,8 @@ def scribe_cards(f: Facts) -> list[dict]:
                 f"{kinds['date']} hold dates and {kinds['text']} hold text or categories. "
                 f"{f.missing_total:,} cells are empty ({f.missing_total / cells:.1%}) and "
                 f"{len(f.duplicates):,} rows are repeated. Data health: {f.health_score}/100."
+                + (f" You left out {f.all_columns - len(f.cols)} of {f.all_columns} columns." if len(f.cols) < f.all_columns else "")
+                + (f" Your filter dropped {f.excluded_rows:,} rows." if f.excluded else "")
             ),
             "severity": "ok",
             "chart": None,
@@ -616,7 +638,7 @@ def coder_cards(f: Facts) -> list[dict]:
         "chart": None,
         "code": {"python": f"""import pandas as pd
 
-df = {_loader(f)}
+{_loader(f)}
 print(df.shape)          # ({f.rows}, {len(f.cols)})
 print(df.dtypes)
 print(df.isna().sum().sort_values(ascending=False).head(10))
