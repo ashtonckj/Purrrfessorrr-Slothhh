@@ -125,6 +125,9 @@
 .card__table caption { caption-side: bottom; text-align: right; padding: 4px 6px; color: var(--text-muted); }
 .card__table th, .card__table td { padding: 5px 8px; text-align: left; white-space: nowrap; }
 .card__table th { background: var(--wood); color: var(--white); }
+.card__sort { display: inline-flex; gap: 6px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.card__sort:hover { text-decoration: underline; }
+.card__arrow { display: inline-block; min-width: 1ch; }
 .card__table tr:nth-child(even) td { background: var(--surface-2); }
 
 .card__more { margin: 8px; min-height: 28px; font-size: var(--fs-xs); }

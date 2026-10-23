@@ -201,6 +201,7 @@ export const DRAWER = {
   soon: 'soon',
   showCode: 'show code',
   rowsShown: (n, total) => (n < total ? `showing ${n} of ${total} rows` : `all ${total} rows`),
+  sortBy: column => `Sort by ${column}`,
   moreRows: n => `show ${n} more rows`,
   severity: { ok: 'ok', warn: 'check', bad: 'fix me' },
   empty: {

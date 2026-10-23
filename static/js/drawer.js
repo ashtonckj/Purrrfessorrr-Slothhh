@@ -197,16 +197,50 @@ function renderCard(cat, card, openByDefault) {
   return el('div', { class: 'px-frame card__frame' }, details);
 }
 
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+const present = v => v != null && v !== '';
+
+/** The number a cell starts with ("1,200-2,300" -> 1200, "2025-10" -> 2025), or NaN. */
+function lead(v) {
+  const m = String(v).replace(/(\d),(?=\d{3}\b)/g, '$1').match(/^-?\d+(\.\d+)?/);
+  return m ? Number(m[0]) : NaN;
+}
+
+/** Rows ordered by one column: numbers as numbers, labels by their leading number, then text. Blanks last. */
+function sortRows(rows, col, dir) {
+  return rows.slice().sort((x, y) => {
+    const a = x[col], b = y[col];
+    if (!present(a) || !present(b)) return present(b) - present(a);
+    const [la, lb] = [lead(a), lead(b)];
+    const cmp = typeof a === 'number' && typeof b === 'number' ? a - b
+      : la !== lb && Number.isFinite(la) && Number.isFinite(lb) ? la - lb : collator.compare(String(a), String(b));
+    return dir === 'asc' ? cmp : -cmp;
+  });
+}
+
 function renderTable(table) {
   let shown = TABLE_ROWS;
+  const sort = { col: 0, dir: 'asc' };       // starts sorted by the first column, ascending
   const wrap = el('div', { class: 'card__table-wrap' });
+  // Click a column: ascending, then descending, then the order the cat wrote them in.
+  const sortBy = i => {
+    if (sort.col !== i) Object.assign(sort, { col: i, dir: 'asc' });
+    else if (sort.dir === 'asc') sort.dir = 'desc';
+    else Object.assign(sort, { col: null, dir: 'asc' });
+  };
   const paint = () => {
-    const rows = table.rows.slice(0, shown);
+    const ordered = sort.col == null ? table.rows : sortRows(table.rows, sort.col, sort.dir);
+    const rows = ordered.slice(0, shown);
     const left = table.rows.length - rows.length;
     wrap.replaceChildren(
       el('table', { class: 'card__table' },
         el('caption', { text: DRAWER.rowsShown(rows.length, table.rows.length) }),
-        el('thead', {}, el('tr', {}, table.columns.map(c => el('th', { scope: 'col', text: String(c) })))),
+        el('thead', {}, el('tr', {}, table.columns.map((c, i) => el('th', { scope: 'col',
+          'aria-sort': sort.col === i ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none' },
+          el('button', { type: 'button', class: 'card__sort', title: DRAWER.sortBy(String(c)),
+            onclick: () => { sortBy(i); paint(); } },
+          String(c), el('span', { class: 'card__arrow', 'aria-hidden': 'true',
+            text: sort.col === i ? (sort.dir === 'asc' ? '▲' : '▼') : '' })))))),
         el('tbody', {}, rows.map(r => el('tr', {}, r.map(v => el('td', { text: v == null ? '' : String(v) })))))),
       ...(left ? [el('button', { type: 'button', class: 'btn card__more',
         onclick: () => { shown += MORE_ROWS; paint(); } }, DRAWER.moreRows(Math.min(MORE_ROWS, left)))] : []));
