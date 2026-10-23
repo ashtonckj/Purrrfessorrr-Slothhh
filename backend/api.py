@@ -130,10 +130,7 @@ async def export_notebook(job_id: str) -> Response:
 @router.post("/chat")
 async def chat(body: ChatIn) -> dict:
     job = jobs.get(body.job_id) if body.job_id else None
-    reply = await engine.chat(job, body.message)
-    if job is not None:
-        job.chat_history += [{"role": "user", "text": body.message}, {"role": "sloth", "text": reply}]
-    return {"reply": reply}
+    return {"reply": await engine.chat(job, body.message)}
 
 
 @router.get("/sample.csv")

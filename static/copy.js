@@ -50,9 +50,6 @@ export const UI = {
   modeReal: 'real',
   sample: 'sample csv',
   sampleLink: 'download sample',
-  theme: 'theme',
-  themeDay: 'day',
-  themeNight: 'night',
   soundToggle: 'Sound effects',
   soundIsOn: 'sound: on (click to mute)',
   soundIsOff: 'sound: off (click for blips)',
@@ -123,13 +120,6 @@ export const SLOTH = {
 };
 
 export const CATS = {
-  start: {
-    detective: ['on the case, boss!', 'magnifier: ready. let me sniff this out.'],
-    artist: ['ooh, a blank canvas!', 'sharpening my pencils!'],
-    scribe: ['taking notes... purrfectly.', 'quill inked, ready to write.'],
-    coder: ['booting up my brain.', 'import pandas as pd. on it!'],
-    janitor: ['broom out, sleeves up!', 'time to tidy up this mess.'],
-  },
   done: {
     detective: ({ cards }) => `case closed! ${lower(cards[0]?.title ?? 'nothing suspicious')}.`,
     artist: ({ cards }) => `${cards.length} charts, pawsitively framed.`,

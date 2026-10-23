@@ -30,7 +30,6 @@ class Job:
     results: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     health_score: int | None = None
     finished: bool = False
-    chat_history: list[dict[str, str]] = field(default_factory=list)
     _changed: asyncio.Condition = field(default_factory=asyncio.Condition)
 
     async def emit(self, type_: str, **data: Any) -> None:

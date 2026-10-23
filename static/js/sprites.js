@@ -62,16 +62,6 @@ export function spriteInfo(id) {
   return manifest.sprites[id];
 }
 
-/** URL of a sheet, for <img> use (single-frame sprites like avatars and icons). */
-export function spriteUrl(id) {
-  const info = spriteInfo(id);
-  return info && status.get(id) === 'ok' ? ASSET_ROOT + info.file : null;
-}
-
-export function hasSprite(id) {
-  return status.get(id) === 'ok';
-}
-
 /**
  * Create a sprite element.
  * @param {string} id        manifest id, e.g. 'sloth_idle'
@@ -139,18 +129,6 @@ export function setSprite(el, id, { force = false } = {}) {
 export function setScale(el, scale) {
   el.dataset.scale = String(toScale(scale));
   return setSprite(el, el.dataset.sprite, { force: true });
-}
-
-/** Freeze on frame 0 (true) or resume (false). */
-export function setPaused(el, paused) {
-  if (paused) el.dataset.paused = '';
-  else delete el.dataset.paused;
-  return setSprite(el, el.dataset.sprite, { force: true });
-}
-
-/** Largest integer scale whose width fits in `available` px (min 1). */
-export function fitScale(frameWidth, available, max = 6) {
-  return Math.max(1, Math.min(max, Math.floor(available / frameWidth)));
 }
 
 function toScale(scale) {

@@ -24,10 +24,6 @@ export function initFlow(config) {
   chat.initChat(document.getElementById('chat'), { onSend: handleText, onFiles: handleFiles });
 }
 
-export function currentJobId() {
-  return state.jobId;
-}
-
 // Chat output is serialised so typing dots and messages never interleave.
 // Bus events are emitted immediately (the office animates in real time).
 let chain = Promise.resolve();

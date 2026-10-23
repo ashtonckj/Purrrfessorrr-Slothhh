@@ -201,7 +201,3 @@ export function setStatus(key) {
 export function setBusy(busy) {
   field.placeholder = busy ? UI.inputPlaceholderBusy : UI.inputPlaceholder;
 }
-
-export function focusInput() {
-  field.focus();
-}
