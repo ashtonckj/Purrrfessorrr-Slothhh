@@ -122,6 +122,7 @@ Edit **`config.env`** (environment variables with the same name override it):
 - **/dev.html**: a bare test page that runs upload > analyze > event stream without the pixel UI.
 - **/sprites.html**: sprite gallery (zoom, pause, missing-file preview).
 - **/api/docs**: interactive API docs (FastAPI).
+- `node scripts/check-image-sizes.js`: checks every sprite PNG against `manifest.json` after art changes.
 
 ## Project layout
 
@@ -159,6 +160,8 @@ static/
   assets/               sprites, avatars, ui icons, fonts, audio, manifest.json
 tools/
   generate_placeholders.py   draws the placeholder pixel art + manifest
+scripts/
+  check-image-sizes.js       PNG sizes vs manifest.json (node, no packages)
 tests/                  python -m unittest discover tests
 ```
 

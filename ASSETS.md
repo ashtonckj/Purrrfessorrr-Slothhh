@@ -77,6 +77,17 @@ By default this **only creates missing PNGs** and keeps manifest entries for
 files that already exist, so your art and your manifest edits are safe.
 `--force` redraws every placeholder and **overwrites your art**.
 
+## Checking sizes after a redraw
+
+```bash
+node scripts/check-image-sizes.js
+```
+
+It compares every PNG with `manifest.json` and, for each one that doesn't match,
+prints the `frameWidth` / `frameHeight` / `frameCount` to put in the manifest
+(and how much bigger it will look on screen). It also lists PNGs the manifest
+doesn't mention. It needs only Node, with no packages to install.
+
 ## Sizes and scales
 
 | kind | frame size | on-screen scale |
