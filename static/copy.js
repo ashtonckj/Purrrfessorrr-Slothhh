@@ -200,7 +200,8 @@ export const DRAWER = {
   r: 'R',
   soon: 'soon',
   showCode: 'show code',
-  preview: n => `first ${n} rows`,
+  rowsShown: (n, total) => (n < total ? `showing ${n} of ${total} rows` : `all ${total} rows`),
+  moreRows: n => `show ${n} more rows`,
   severity: { ok: 'ok', warn: 'check', bad: 'fix me' },
   empty: {
     noJob: 'no papers yet... drop a csv in the chat and this cat gets to work.',

@@ -11,7 +11,8 @@ import { copyButton, renderCode } from './codebox.js';
 import { createSprite } from './sprites.js';
 import { el, icon, prefersReducedMotion } from './ui.js';
 
-const PREVIEW_ROWS = 5;
+const TABLE_ROWS = 10;   // rows a table shows before "show more"
+const MORE_ROWS = 50;    // rows each "show more" adds
 
 const state = {
   jobId: null,
@@ -197,12 +198,21 @@ function renderCard(cat, card, openByDefault) {
 }
 
 function renderTable(table) {
-  const rows = table.rows.slice(0, PREVIEW_ROWS);
-  return el('div', { class: 'card__table-wrap' },
-    el('table', { class: 'card__table' },
-      el('caption', { text: DRAWER.preview(Math.min(PREVIEW_ROWS, table.rows.length)) + ` / ${table.rows.length}` }),
-      el('thead', {}, el('tr', {}, table.columns.map(c => el('th', { scope: 'col', text: String(c) })))),
-      el('tbody', {}, rows.map(r => el('tr', {}, r.map(v => el('td', { text: v == null ? '' : String(v) })))))));
+  let shown = TABLE_ROWS;
+  const wrap = el('div', { class: 'card__table-wrap' });
+  const paint = () => {
+    const rows = table.rows.slice(0, shown);
+    const left = table.rows.length - rows.length;
+    wrap.replaceChildren(
+      el('table', { class: 'card__table' },
+        el('caption', { text: DRAWER.rowsShown(rows.length, table.rows.length) }),
+        el('thead', {}, el('tr', {}, table.columns.map(c => el('th', { scope: 'col', text: String(c) })))),
+        el('tbody', {}, rows.map(r => el('tr', {}, r.map(v => el('td', { text: v == null ? '' : String(v) })))))),
+      ...(left ? [el('button', { type: 'button', class: 'btn card__more',
+        onclick: () => { shown += MORE_ROWS; paint(); } }, DRAWER.moreRows(Math.min(MORE_ROWS, left)))] : []));
+  };
+  paint();
+  return wrap;
 }
 
 // ---------------------------------------------------------------- actions

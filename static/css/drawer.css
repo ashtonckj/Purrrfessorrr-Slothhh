@@ -127,6 +127,7 @@
 .card__table th { background: var(--wood); color: var(--white); }
 .card__table tr:nth-child(even) td { background: var(--surface-2); }
 
+.card__more { margin: 8px; min-height: 28px; font-size: var(--fs-xs); }
 .card__actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .card__actions .btn { font-size: var(--fs-xs); min-height: 30px; }
 
