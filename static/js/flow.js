@@ -58,7 +58,7 @@ function handleText(text) {
   const reply = api.chat(state.jobId, text).catch(() => ({ from: 'sloth', reply: say(SLOTH.chatFailed) }));
   queue(async () => {
     const [{ from, reply: answer }] = await Promise.all([reply, chat.showTyping('sloth', 1500)]);
-    chat.addMessage({ from, text: answer, icon: CAT_ICONS[from] });
+    chat.addMessage({ from: from ?? 'sloth', text: answer, icon: CAT_ICONS[from] });
   });
 }
 
@@ -110,6 +110,8 @@ async function runFile(file) {
     card.setError(err.message);
     throw err;
   }
+  // An old server (started before an update) answers without a preview; say so instead of crashing.
+  if (!Array.isArray(info.preview)) throw new Error('the server is running old code... restart it (run.bat) and drop the file again');
   card.setInfo(info);
   emit('sound', { name: 'drop' });
 
