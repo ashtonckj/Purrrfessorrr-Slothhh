@@ -270,6 +270,15 @@ class LocalEngineTest(unittest.TestCase):
         ask("show me the code to load the data")
         self.assertEqual(ask("tell me about customer").who, "scribe")            # not the coder who spoke last
 
+    def test_a_connecting_word_is_not_a_question(self):
+        ask = self._cafe_all()
+        replies = ask("can you give me the code snippet to load the shape? and also are there any missing values in the dataset?")
+        self.assertEqual([r.who for r in replies], ["coder", "janitor"])           # no sloth hint in between
+        self.assertIsNotNone(replies[0].code)
+        mixed = ask("show me some rows and zzzz qqqq")                              # a part nobody understands stays quiet
+        self.assertEqual([r.who for r in mixed], ["scribe"])
+        self.assertEqual(ask("zzzz qqqq")[0].who, "sloth")                          # ...unless it is the whole message
+
     def test_answers_to_a_cats_question_are_marked_as_follow_ups(self):
         ask = self._cafe()
         self.assertFalse(ask("tell me about customer").followup)            # the question itself is a new request

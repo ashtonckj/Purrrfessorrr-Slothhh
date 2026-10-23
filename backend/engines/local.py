@@ -48,6 +48,7 @@ NO = re.compile(r"(no|nope|nah|n|cancel|never ?mind|forget it)")
 CHAT_WORDS = {"show", "tell", "with", "from", "have", "that", "this", "what", "does", "data", "about", "there",
               "which", "where", "give", "find", "look", "check", "please", "dataset", "file", "column", "columns"}
 MAX_CHOICES = 6
+HELP_HINT = lines.CHAT_HELP.split("{")[0]
 # Which numbers a question asks for, so "the highest temp" gets the max and not the whole profile.
 WANTED = [(stat, re.compile(words)) for stat, words in (
     ("mode", r"most (common|frequent|popular)|\bmode\b"),
@@ -226,6 +227,8 @@ class LocalEngine(Engine):
                     voice = f"{lines.CHAT_VOICE[reply.who]} "      # same cat again: say it once
                     reply = replace(reply, text=reply.text.removeprefix(voice))
                 replies.append(reply)
+        if len(replies) > 1:                   # the "ask about..." hint is only for when nothing else answered
+            replies = [r for r in replies if not r.text.startswith(HELP_HINT)]
         if job is not None and job.id in self._convo:
             self._convo[job.id].last = replies
         return replies

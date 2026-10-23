@@ -23,7 +23,11 @@ SPLIT_AT = re.compile(rf"\s*\?+\s*|\s*[;\n]+\s*|,?\s+(?:and|also|then|plus)\s+(?
 
 def split_questions(message: str) -> list[str]:
     """The separate questions in one message, in order."""
-    parts = [re.sub(r"\s+(and|also|then|plus)$", "", p.strip(" ,.!"), flags=re.I) for p in SPLIT_AT.split(message)]
+    parts = []
+    for p in SPLIT_AT.split(message):
+        p = re.sub(r"^(?:(?:and|also|then|plus)\b[\s,]*)+", "", p.strip(" ,.!"), flags=re.I)   # "? and also are..."
+        p = re.sub(r"(?:[\s,]+(?:and|also|then|plus))+$", "", p, flags=re.I)
+        parts.append(p)
     return [p for p in parts if len(p) > 1] or [message.strip()]
 
 
