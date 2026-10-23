@@ -7,9 +7,10 @@ cat reports back with findings, charts, explanations, code and cleaning steps.
 > The sloth typed "Purrfessor Sloth" and left his finger on the keys too long.
 
 Everything runs on your machine; the app makes no external network requests.
-**Right now it runs on mock data** (`MOCK_MODE=true`): the cats return plausible
-results built from your real column names. A real pandas + Ollama/Gemma engine
-can be plugged in later without touching the frontend (see [API.md](API.md)).
+The cats read **every row** of your file and report real statistics (missing
+values, IQR outliers, duplicates, type problems, distributions, correlations),
+using only the Python standard library. Another engine (e.g. pandas +
+Ollama/Gemma) can be plugged in without touching the frontend (see [API.md](API.md)).
 
 | Cat | Job |
 |---|---|
@@ -63,27 +64,35 @@ python3 -m venv .venv
 
 1. Drag a `.csv`, `.tsv` or `.xlsx` onto the chat (or click the paperclip).
    No data at hand? Settings (gear icon) > **download sample**.
+   A dialog previews the first rows: untick columns to skip, pick a **target**
+   (the column you want to predict), and add rules like "exclude rows where
+   store is Campus". Then press **start the cats**.
 2. The sloth replies, then papers fly to the five desks: one paper per 1,000
-   rows, capped at 30.
+   rows, capped at 30 on screen (the cats still read every row).
 3. Watch the progress bars. When a cat finishes, click it (or its **Results**
    button) to open the results drawer: charts, data previews, code, downloads.
 4. When everyone is done the sloth shows a **data health score** (0-100):
    happy above 80, grumpy below 40. The drawer can then export everything as a
    `.zip` or a Jupyter notebook.
-5. Chat with the sloth any time. In mock mode it gives canned (lazy) answers.
+5. Chat any time. Ask about outliers, duplicates, missing values, charts,
+   correlations, code, or a column by name ("tell me about customer age"): the
+   sloth passes the question to the cat whose job it is, and that cat answers
+   from the results. Cats remember the last topic, so "and total?" or "is it
+   missing anywhere?" work as follow-ups, and when a question is vague (a
+   partial column name, an average with no column) the cat asks you to confirm,
+   with tap-to-answer buttons. You can also ask what is inside: "what holidays
+   are there?" (lists a column's values with counts), "what columns are there?",
+   "show me some rows", "how many Labor Day". Questions about the generated
+   code are answered from the code itself ("what seed does it use?", "which
+   libraries?", "what model?", "show me the code to load the data"), the cards can
+   be asked about ("what does the histogram show?"), and the sloth also handles
+   greetings, "how is the health score calculated?", "are you an AI?" (no: the
+   cats just count, there is no language model) and "say that again".
 
 Top-right buttons: sound (off by default), day/night theme, settings.
 
-## Pixel font (optional, recommended)
-
-The UI is designed for **Press Start 2P** (SIL Open Font License). It isn't
-bundled yet; without it the app falls back to a monospace font at larger sizes.
-
-1. Download `PressStart2P-Regular.ttf` from
-   <https://fonts.google.com/specimen/Press+Start+2P> (or from the
-   [google/fonts repo](https://github.com/google/fonts/tree/main/ofl/pressstart2p)).
-2. Put it at `static/assets/fonts/PressStart2P-Regular.ttf` (exact name).
-3. Reload the page.
+Text uses your system's monospace font (`ui-monospace`: Cascadia Mono or
+Consolas on Windows), so there is nothing to download.
 
 ## Configuration
 
@@ -91,20 +100,16 @@ Edit **`config.env`** (environment variables with the same name override it):
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `MOCK_MODE` | `true` | `true` = scripted cats. `false` = real engine (not built yet). |
 | `HOST`, `PORT` | `127.0.0.1`, `8765` | Where the server listens (localhost only). |
 | `OPEN_BROWSER` | `true` | Open a browser tab on start. |
 | `MAX_UPLOAD_MB` | `200` | Upload size limit. |
 | `UPLOAD_DIR` | `data/uploads` | Where uploads are stored (git-ignored). |
-| `OLLAMA_URL`, `MODEL_NAME` | `http://127.0.0.1:11434`, `gemma3:4b` | For the real engine; the model name shows in Settings. |
-| `MOCK_SPEED` | `1.0` | Mock timing multiplier (`0.3` = fast demo). |
-| `MOCK_ERROR_RATE` | `0.0` | Chance (0-1) that a mock cat fails, to see error states. |
+| `CAT_SPEED` | `1.0` | Cat animation multiplier (`0.3` = fast demo). The numbers are real either way. |
 
 ## Customising
 
-- **Text and jokes:** all UI copy is in [`static/copy.js`](static/copy.js). The mock
-  backend's progress lines and chat replies are in
-  [`backend/engines/mock_copy.py`](backend/engines/mock_copy.py).
+- **Text and jokes:** all UI copy is in [`static/copy.js`](static/copy.js). The cats'
+  progress lines and chat voices are in [`backend/engines/lines.py`](backend/engines/lines.py).
 - **Art:** replace any PNG and keep `static/assets/manifest.json` in sync. See
   [ASSETS.md](ASSETS.md). The sprite gallery at **/sprites.html** previews everything.
 - **Sounds:** off by default. Drop files in `static/assets/audio/` and list them in
@@ -117,12 +122,13 @@ Edit **`config.env`** (environment variables with the same name override it):
 - **/dev.html**: a bare test page that runs upload > analyze > event stream without the pixel UI.
 - **/sprites.html**: sprite gallery (zoom, pause, missing-file preview).
 - **/api/docs**: interactive API docs (FastAPI).
+- `node scripts/check-image-sizes.js`: checks every sprite PNG against `manifest.json` after art changes.
 
 ## Project layout
 
 ```
 app.py                  start here: serves the API and the static frontend
-config.env              settings (MOCK_MODE, port, ...)
+config.env              settings (port, upload limit, ...)
 backend/
   api.py                HTTP routes (the frontend contract, see API.md)
   jobs.py               job registry + replayable event log for SSE
@@ -130,9 +136,10 @@ backend/
   exporters.py          .zip and .ipynb exports
   sample_data.py        the sample CSV
   engines/
-    base.py             Engine interface: implement this for the real backend
-    mock.py             mock cats (parallel, random durations)
-    mock_copy.py        mock text
+    base.py             Engine interface
+    local.py            the cats: real statistics over every row, and the chat routing
+    talk.py             chat helpers: small talk, code questions, finding a card
+    lines.py            the cats' progress lines and chat voices
 static/
   index.html, copy.js
   css/                  palette, base app, chat, office, drawer, sprites
@@ -144,6 +151,7 @@ static/
     chat.js             chat panel rendering, drag & drop
     office.js           office scene: sloth, desks, bars, flying papers
     drawer.js           results drawer: cards, downloads
+    picker.js           upload dialog: columns, target, row filter
     chart.js            pixel charts on canvas
     syntax.js           tiny syntax highlighter
     sprites.js          sprite engine (reads the manifest)
@@ -152,6 +160,9 @@ static/
   assets/               sprites, avatars, ui icons, fonts, audio, manifest.json
 tools/
   generate_placeholders.py   draws the placeholder pixel art + manifest
+scripts/
+  check-image-sizes.js       PNG sizes vs manifest.json (node, no packages)
+tests/                  python -m unittest discover tests
 ```
 
 ## Troubleshooting

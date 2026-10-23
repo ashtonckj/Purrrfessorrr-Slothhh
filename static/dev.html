@@ -59,7 +59,7 @@
     document.getElementById('file').onchange = e => e.target.files[0] && analyze(e.target.files[0]);
     document.getElementById('chat').onclick = async () => {
       const r = await (await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ job_id: jobId, message: 'how is the data health score?' }) })).json();
-      log('sloth:', r.reply);
+      for (const reply of r.replies) log(`${reply.from}:`, reply.reply);
     };
   </script>
 </body>

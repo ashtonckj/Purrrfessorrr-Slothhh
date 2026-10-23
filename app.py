@@ -44,8 +44,7 @@ def main() -> None:
     args = parser.parse_args()
 
     url = f"http://{settings.host}:{args.port}/"
-    mode = "MOCK" if settings.mock_mode else "REAL"
-    print(f"\n  Purrfessorrr Slothhh ({mode} mode) is waking up... slowly...\n  -> {url}\n")
+    print(f"\n  Purrfessorrr Slothhh is waking up... slowly...\n  -> {url}\n")
 
     if settings.open_browser and not args.no_browser:
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()

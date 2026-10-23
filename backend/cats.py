@@ -14,13 +14,12 @@ MAX_PAPERS = 30
 ROWS_PER_PAPER = 1000
 
 
-def paper_total(rows: int) -> tuple[int, bool]:
+def paper_total(rows: int) -> int:
     """Papers on the sloth's table: ceil(rows / 1000), capped at 30.
 
-    Returns (papers, capped).
+    Only the animation is capped; every row is still analysed.
     """
-    papers = max(1, -(-rows // ROWS_PER_PAPER))
-    return min(papers, MAX_PAPERS), papers > MAX_PAPERS
+    return min(max(1, -(-rows // ROWS_PER_PAPER)), MAX_PAPERS)
 
 
 def split_papers(total: int) -> dict[str, int]:

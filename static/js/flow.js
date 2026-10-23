@@ -5,13 +5,13 @@
  */
 import * as api from './api.js';
 import * as chat from './chat.js';
+import { codeBlock } from './codebox.js';
 import { emit } from './bus.js';
 import { CAT_ICONS, CATS, NAMES, SLOTH, UI } from '../copy.js';
-import { formatNumber, prefersReducedMotion, say, sleep } from './ui.js';
+import { pickColumns } from './picker.js';
+import { formatNumber, moodFor, prefersReducedMotion, say, sleep } from './ui.js';
 
 const ACCEPTED = ['.csv', '.tsv', '.xlsx'];
-const MAX_PAPERS = 30;
-const ROWS_PER_PAPER = 1000;
 
 const state = {
   config: { max_upload_mb: 200 },
@@ -19,15 +19,12 @@ const state = {
   busy: false,      // a file is being uploaded / analysed
   closeStream: null,
   jobs: 0,
+  lastCat: null,    // the cat that answered last, who types while a tapped choice is answered
 };
 
 export function initFlow(config) {
   state.config = config ?? state.config;
   chat.initChat(document.getElementById('chat'), { onSend: handleText, onFiles: handleFiles });
-}
-
-export function currentJobId() {
-  return state.jobId;
 }
 
 // Chat output is serialised so typing dots and messages never interleave.
@@ -58,12 +55,30 @@ export function greet() {
 
 // ------------------------------------------------------------------- text
 
-function handleText(text) {
+const catName = cat => NAMES[cat].split(' ')[0].toLowerCase();
+
+/**
+ * Send a message and show the answers: one bubble per question, from whichever cat knows. The sloth
+ * hands new questions over, but stays quiet when you are answering a cat (typing "yes" or tapping a choice).
+ */
+function handleText(text, { tapped = false } = {}) {
   chat.addMessage({ from: 'user', text });
-  const reply = api.chat(state.jobId, text).then(r => r.reply, () => say(SLOTH.chatFailed));
+  const replies = api.chat(state.jobId, text).then(r => r.replies, () => [{ from: 'sloth', reply: say(SLOTH.chatFailed) }]);
   queue(async () => {
-    const [text_] = await Promise.all([reply, chat.showTyping('sloth', 1500)]);
-    chat.addMessage({ from: 'sloth', text: text_ });
+    const typist = tapped && state.lastCat ? state.lastCat : 'sloth';
+    const [answers] = await Promise.all([replies, chat.showTyping(typist, 1000)]);
+    const cats = [...new Set(answers.map(r => r.from).filter(from => from !== 'sloth'))];
+    if (cats.length && !tapped && !answers[0].followup) {
+      chat.addMessage({ from: 'sloth', text: cats.length === 1
+        ? say(SLOTH.asking, { cat: catName(cats[0]) })
+        : say(SLOTH.askingMany, { cats: new Intl.ListFormat('en').format(cats.map(catName)) }) });
+    }
+    for (const [i, { from, reply, choices = [], code }] of answers.entries()) {
+      if (from !== 'sloth' && (i > 0 || typist !== from)) await chat.showTyping(from, 700);
+      chat.addMessage({ from, text: reply, icon: CAT_ICONS[from], extra: code ? [codeBlock(code)] : [],
+        actions: choices.map(label => ({ label, onClick: () => handleText(label, { tapped: true }) })) });
+      if (from !== 'sloth') state.lastCat = from;
+    }
   });
 }
 
@@ -93,12 +108,17 @@ async function handleFiles(files) {
   try {
     await runFile(file);
   } catch (err) {
-    state.busy = false;
-    chat.setBusy(false);
-    chat.setStatus('online');
+    idle();
     emit('sloth:mood', { mood: 'grumpy' });
     queue(() => slothSays(say(SLOTH.uploadFailed, { reason: err.message ?? 'no idea why' })));
   }
+}
+
+/** Ready for the next file. */
+function idle() {
+  state.busy = false;
+  chat.setBusy(false);
+  chat.setStatus('online');
 }
 
 async function runFile(file) {
@@ -110,6 +130,8 @@ async function runFile(file) {
     card.setError(err.message);
     throw err;
   }
+  // An old server (started before an update) answers without a preview; say so instead of crashing.
+  if (!Array.isArray(info.preview)) throw new Error('the server is running old code... restart it (run.bat) and drop the file again');
   card.setInfo(info);
   emit('sound', { name: 'drop' });
 
@@ -120,17 +142,24 @@ async function runFile(file) {
     if (!first) await slothSays(say(SLOTH.again));
     else if (info.rows < 1000) await slothSays(say(SLOTH.receivedTiny, { name: info.filename, rows }));
     else await slothSays(say(SLOTH.received, { name: info.filename, rows }));
-    await slothSays(say(SLOTH.delegate));
+    await slothSays(say(SLOTH.pick));
   });
 
-  const { job_id: jobId } = await api.analyze(info.file_id);
+  const choice = await pickColumns(info);
+  if (!choice) {
+    idle();
+    await queue(() => slothSays(say(SLOTH.cancelled)));
+    return;
+  }
+  await queue(() => slothSays(say(SLOTH.delegate)));
+  const { job_id: jobId } = await api.analyze(info.file_id, choice);
   state.jobId = jobId;
   chat.setStatus('delegating');
   emit('job:start', { jobId, file: info });
-  listen(jobId, info);
+  listen(jobId);
 }
 
-function listen(jobId, info) {
+function listen(jobId) {
   state.closeStream?.();
   const delegated = {};
 
@@ -138,9 +167,7 @@ function listen(jobId, info) {
     emit(`job:${type}`, data);
     queue(() => onJobEvent(type, data));
   }, () => queue(async () => {
-    state.busy = false;
-    chat.setBusy(false);
-    chat.setStatus('online');
+    idle();
     await slothSays(say(SLOTH.connectionLost));
   }));
 
@@ -149,8 +176,7 @@ function listen(jobId, info) {
       delegated[data.cat] = data.paper_count;
       if (Object.keys(delegated).length === 5) {
         const papers = Object.values(delegated).reduce((a, b) => a + b, 0);
-        const total = Math.ceil(info.rows / ROWS_PER_PAPER);
-        await slothSays(total > MAX_PAPERS ? say(SLOTH.papersCapped, { total }) : say(SLOTH.papers, { papers }));
+        await slothSays(say(SLOTH.papers, { papers }));
         chat.setStatus('napping');
         emit('sloth:mood', { mood: 'sleep' });
       }
@@ -164,22 +190,21 @@ function listen(jobId, info) {
       emit('sound', { name: 'done' });
     } else if (type === 'error') {
       if (data.cat) {
-          chat.addMessage({ from: data.cat, text: say(CATS.error, { message: data.message }), icon: 'icon_warning' });
+        chat.addMessage({ from: data.cat, text: say(CATS.error, { message: data.message }), icon: 'icon_warning' });
         emit('sound', { name: 'error' });
         await slothSays(say(SLOTH.catError, { cat: NAMES[data.cat].split(' ')[0].toLowerCase() }));
       } else {
         await slothSays(data.message);
       }
     } else if (type === 'done') {
-      state.busy = false;
-      chat.setBusy(false);
       const score = data.health_score;
       if (score != null) {
-        await slothSays(say(SLOTH.health, { score }), [chat.healthMeter(score)]);
-        emit('sloth:mood', { mood: score > 80 ? 'happy' : score < 40 ? 'grumpy' : 'idle' });
+        const mood = moodFor(score);
+        await slothSays(say(SLOTH.health, { score, mood }), [chat.healthMeter(score)]);
+        emit('sloth:mood', { mood });
       }
       await slothSays(say(SLOTH.allDone));
-      chat.setStatus('online');
+      idle();
     }
   }
 }

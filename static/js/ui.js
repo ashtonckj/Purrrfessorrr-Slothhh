@@ -1,5 +1,5 @@
 // Small DOM and formatting helpers shared by the UI modules.
-import { createSprite } from './sprites.js';
+import { createSprite, reducedMotion } from './sprites.js';
 
 /** Create an element: el('div', { class: 'x', text: 'hi' }, child1, child2) */
 export function el(tag, props = {}, ...children) {
@@ -43,4 +43,7 @@ export function timeNow() {
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-export const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const prefersReducedMotion = () => reducedMotion.matches;
+
+/** Sloth mood for a data health score: happy above 80, grumpy below 40. */
+export const moodFor = score => (score > 80 ? 'happy' : score < 40 ? 'grumpy' : 'idle');

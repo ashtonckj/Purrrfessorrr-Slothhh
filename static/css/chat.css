@@ -70,6 +70,7 @@
   align-items: flex-start;
   gap: 10px;
   max-width: 88%;
+  min-width: 0;
 }
 
 .msg--in { align-self: flex-start; }
@@ -86,6 +87,7 @@
   position: relative;
   min-width: 90px;
   max-width: 100%;
+  flex: 0 1 auto;   /* may shrink below its content, so wide code scrolls inside its box */
 }
 
 .bubble__body {
@@ -159,6 +161,9 @@
 :root[data-theme="night"] .msg__name { color: var(--cat-color, var(--mint)); }
 
 .msg__text { margin: 0; white-space: pre-wrap; }
+.msg__code { font: inherit; padding: 0 4px; background: var(--surface-2); box-shadow: 0 0 0 1px var(--border); }
+.msg__codebox { margin-top: 8px; min-width: 0; max-width: 100%; overflow: hidden; }
+.msg__codebox .card__actions { margin-top: 6px; }
 .msg__text .sprite { vertical-align: -3px; margin-left: 6px; }
 
 .msg__meta {

@@ -77,6 +77,17 @@ By default this **only creates missing PNGs** and keeps manifest entries for
 files that already exist, so your art and your manifest edits are safe.
 `--force` redraws every placeholder and **overwrites your art**.
 
+## Checking sizes after a redraw
+
+```bash
+node scripts/check-image-sizes.js
+```
+
+It compares every PNG with `manifest.json` and, for each one that doesn't match,
+prints the `frameWidth` / `frameHeight` / `frameCount` to put in the manifest
+(and how much bigger it will look on screen). It also lists PNGs the manifest
+doesn't mention. It needs only Node, with no packages to install.
+
 ## Sizes and scales
 
 | kind | frame size | on-screen scale |
@@ -107,7 +118,6 @@ The same colours are CSS variables in `static/css/palette.css`.
 
 ## Other folders
 
-- `static/assets/fonts/`: the pixel font. Expected file: `PressStart2P-Regular.ttf` (see README for the download link).
 - `static/assets/audio/`: optional sound effects and music. List files in `sounds.json`:
 
   | name | when it plays |
@@ -192,3 +202,29 @@ The generator rewrites this table from the manifest.
 | `icon_laptop` | `ui/icon_laptop.png` | 16x16 | 1 | 1 | Coder Cat chat messages |
 | `icon_broom` | `ui/icon_broom.png` | 16x16 | 1 | 1 | Janitor Cat chat messages |
 <!-- sprite-table:end -->
+
+## Known issues
+
+### High-detail icons are unreadable at normal size (logged 2026-10-23, not fixed)
+
+**Seen:** icons redrawn at 32x32, 48x48 or 64x64 look sharp when zoomed in,
+but at normal size the details merge and it's hard to tell which icon is which.
+
+**Why:** icons show at 16-32 px on screen (`icon(name, { scale: 1 | 2 })` in
+`static/js/*.js`, 1x-2x in the table above). A 64x64 drawing in a 16 px slot is
+shrunk 4x, and `image-rendering: pixelated` (`static/css/sprites.css`) keeps
+only one source pixel out of every 16. Thin lines and small details drop out
+or turn into noise. This is a mismatch between the drawing size and the display
+size, not a rendering bug: smoother scaling would only blur the details.
+
+**Options (pick one before redrawing):**
+1. Draw icons at the size they are shown: 16x16, with a bold silhouette and
+   at most 2-3 colours. This matches the current manifest and needs no code change.
+2. Show icons bigger: draw at 32x32, set `frameWidth`/`frameHeight` to 32 in
+   `manifest.json`, and lower every `icon(..., { scale })` so slots don't double
+   (buttons are about 40 px, so 32 px icons fit at 1x).
+3. Keep detailed 64x64 masters for print or marketing, and hand-export a
+   simplified 16x16 (or 32x32) copy for the app. Don't auto-downscale it.
+
+Whichever you pick, check readability at 100% browser zoom from about an
+arm's length away, not zoomed in.

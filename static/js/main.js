@@ -8,14 +8,8 @@ import { initOffice } from './office.js';
 import { initSound } from './sound.js';
 import { loadSprites } from './sprites.js';
 
-async function detectFont() {
-  // Without the bundled pixel font, bump sizes so monospace stays readable.
-  try { await document.fonts.load('11px PressStart'); } catch { /* ignore */ }
-  if (!document.fonts.check('11px PressStart')) document.documentElement.classList.add('font-fallback');
-}
-
 async function main() {
-  const [config] = await Promise.all([getConfig().catch(() => null), loadSprites(), detectFont(), initSound()]);
+  const [config] = await Promise.all([getConfig().catch(() => null), loadSprites(), initSound()]);
 
   initHeader(document.getElementById('topbar'), config);
   initFlow(config);

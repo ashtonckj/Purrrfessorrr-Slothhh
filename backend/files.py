@@ -1,13 +1,14 @@
 """Uploaded file storage and a cheap shape inspection (rows, cols, header).
 
-Inspection is deliberately light (no pandas) so mock mode stays dependency-free.
-The real engine re-reads the file however it likes.
+Inspection is deliberately light (no pandas) so the app stays dependency-free.
+The engine re-reads the file however it likes.
 """
 
 from __future__ import annotations
 
 import asyncio
 import csv
+import math
 import uuid
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -22,6 +23,8 @@ csv.field_size_limit(2**31 - 1)
 
 ALLOWED_EXTENSIONS = {".csv", ".tsv", ".xlsx"}
 CHUNK = 1024 * 1024
+PREVIEW_ROWS = 8
+PREVIEW_CELL = 200      # characters of a cell sent to the upload dialog
 
 
 @dataclass
@@ -33,6 +36,7 @@ class FileInfo:
     rows: int = 0
     cols: int = 0
     columns: list[str] = field(default_factory=list)
+    preview: list[list[str]] = field(default_factory=list)   # first data rows, as text
 
     def public(self) -> dict:
         """Shape returned by POST /api/upload."""
@@ -43,7 +47,16 @@ class FileInfo:
             "cols": self.cols,
             "size_bytes": self.size_bytes,
             "columns": self.columns,
+            "preview": self.preview,
         }
+
+
+@dataclass
+class Selection:
+    """What the user chose in the upload dialog. Column numbers index FileInfo.columns."""
+    columns: list[int] | None = None                       # None = every column
+    target: int | None = None
+    exclude: list[tuple[int, str]] = field(default_factory=list)   # drop rows where column == value
 
 
 _files: dict[str, FileInfo] = {}
@@ -95,15 +108,67 @@ def inspect(info: FileInfo) -> None:
         raise HTTPException(422, "that file looks empty")
     info.columns = [str(c).strip() or f"column_{i + 1}" for i, c in enumerate(header)]
     info.cols = len(info.columns)
-    info.rows = sum(1 for _ in rows)
+    info.preview = []
+    info.rows = 0
+    for row in rows:
+        if info.rows < PREVIEW_ROWS:
+            info.preview.append([cell_text(v)[:PREVIEW_CELL] for v in row[:info.cols]])
+        info.rows += 1
     if info.rows == 0:
         raise HTTPException(422, "that file has a header but no data rows")
+
+
+def cell_text(value) -> str:
+    """A cell as the text the user sees (and filters on)."""
+    return "" if value is None else str(value).strip()
+
+
+def parse_number(v: str) -> float | None:
+    try:
+        x = float(v)            # like pandas: "1,200" and "$3" are text
+    except ValueError:
+        return None
+    return x if math.isfinite(x) else None
+
+
+def cell_matcher(value: str):
+    """Test for an exclude rule: the same text, or the same number (so 0 matches 0.0)."""
+    num = parse_number(value)
+    return lambda cell: cell == value or (num is not None and parse_number(cell) == num)
+
+
+def preview_page(info: FileInfo, rules: list[tuple[int, str]], show_excluded: bool, cursor: int, limit: int) -> dict:
+    """Up to `limit` data rows for the upload dialog, after the first `cursor` rows of the file.
+
+    With `show_excluded` off, rows an exclude rule drops are skipped (so the page shows what will be
+    analysed); otherwise they are returned and flagged. `next` is the cursor for the following page.
+    """
+    matchers = [(j, cell_matcher(value)) for j, value in rules]
+    rows: list[list[str]] = []
+    flags: list[bool] = []
+    seen = 0
+    # shortcut: each page re-reads the file up to the cursor; cache the offset if huge files feel slow.
+    for i, raw in enumerate(iter_rows(info)):
+        if i == 0:
+            continue                           # header
+        seen = i
+        if i <= cursor:
+            continue
+        cells = [cell_text(raw[j]) if j < len(raw) else "" for j in range(info.cols)]
+        hit = any(match(cells[j]) for j, match in matchers)
+        if hit and not show_excluded:
+            continue
+        rows.append([c[:PREVIEW_CELL] for c in cells])
+        flags.append(hit)
+        if len(rows) >= limit:
+            return {"rows": rows, "excluded": flags, "next": i, "done": False}
+    return {"rows": rows, "excluded": flags, "next": seen, "done": True}
 
 
 def iter_rows(info: FileInfo) -> Iterator[list]:
     """Yield the header, then the data rows, skipping blank lines.
 
-    Shared by the upload check and the mock engine so they always agree.
+    Shared by the upload check and the engine so they always agree.
     """
     if info.path.suffix.lower() == ".xlsx":
         yield from _iter_xlsx(info)
