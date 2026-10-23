@@ -215,7 +215,8 @@ dialog.settings::backdrop { background: rgba(43, 29, 20, 0.55); }
 
 .settings__fill { padding: 18px 20px; display: grid; gap: 14px; }
 .settings__fill h2 { margin: 0; font-size: var(--fs-l); }
-.settings__row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+.settings__row { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; }
+.settings__row dd { justify-self: end; }
 .settings__row dt { color: var(--text-muted); font-size: var(--fs-s); }
 .settings__row dd { margin: 0; }
 .settings__foot { display: flex; justify-content: flex-end; gap: 10px; }

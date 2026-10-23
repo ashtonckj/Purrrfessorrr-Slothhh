@@ -89,7 +89,7 @@ python3 -m venv .venv
    greetings, "how is the health score calculated?", "are you an AI?" (no: the
    cats just count, there is no language model) and "say that again".
 
-Top-right buttons: sound (off by default), day/night theme, settings.
+The top-right gear opens settings: day/night theme, sound effects (off by default) and a sample CSV.
 
 Text uses your system's monospace font (`ui-monospace`: Cascadia Mono or
 Consolas on Windows), so there is nothing to download.
