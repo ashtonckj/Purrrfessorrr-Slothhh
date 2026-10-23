@@ -97,18 +97,74 @@ class LocalEngineTest(unittest.TestCase):
         self.assertIn('pd.to_numeric(df["n"], errors="coerce") != 0.0',
                       BUILDERS["coder"](analyse(info, Selection(exclude=[(0, "0")])))[0]["code"]["python"])
 
-    def test_chat_routes_to_the_right_cat(self):
+    def _chat(self, text: str):
+        path = self.dir / "chat.csv"
+        path.write_text(text)
+        engine = LocalEngine(speed=0.05)
+        job = Job(id="j", file=_file(path))
+        asyncio.run(engine.run(job))
+        return lambda m: asyncio.run(engine.chat(job, m))
+
+    def _cafe(self):
         path = self.dir / "cafe.csv"
         path.write_bytes(sample_csv())
         engine = LocalEngine(speed=0.05)
         job = Job(id="j", file=_file(path))
         asyncio.run(engine.run(job))
-        ask = lambda m: asyncio.run(engine.chat(job, m))
-        self.assertEqual(ask("any outliers in quantity?")[0], "detective")
-        self.assertIn("missing", ask("how much is missing in rating")[1])
-        self.assertEqual(ask("tell me about customer age")[0], "scribe")
-        self.assertEqual(ask("show me some code")[0], "coder")
-        self.assertEqual(ask("hello")[0], "sloth")
+        return lambda m: asyncio.run(engine.chat(job, m))
+
+    def test_chat_routes_to_the_right_cat(self):
+        ask = self._cafe()
+        self.assertEqual(ask("any outliers in quantity?").who, "detective")
+        self.assertIn("missing", ask("how much is missing in rating").text)
+        self.assertEqual(ask("tell me about customer age").who, "scribe")
+        self.assertEqual(ask("show me some code").who, "coder")
+        self.assertEqual(ask("hello").who, "sloth")
+
+    def test_chat_remembers_the_last_cat_and_column(self):
+        ask = self._cafe()
+        first = ask("any outliers in quantity?")
+        self.assertEqual(first.who, "detective")
+        self.assertIn("quantity has", first.text)
+        again = ask("what about total?")                  # a bare column keeps the detective
+        self.assertEqual(again.who, "detective")
+        self.assertIn("total has", again.text)
+        ask("any outliers in rating?")
+        missing = ask("is it missing anywhere?")           # "it" is rating
+        self.assertEqual(missing.who, "janitor")
+        self.assertIn("rating has", missing.text)
+        ask("any outliers in quantity?")
+        self.assertIn("Most extreme", ask("show me examples").text)
+
+    def test_whole_file_answers_offer_columns_to_tap(self):
+        ask = self._cafe()
+        reply = ask("any outliers?")
+        self.assertEqual(reply.who, "detective")
+        self.assertTrue(reply.choices)
+        follow = ask(reply.choices[0])                     # tapping a choice sends its name
+        self.assertEqual(follow.who, "detective")
+        self.assertIn(f"{reply.choices[0]} has", follow.text)
+
+    def test_cats_ask_before_guessing(self):
+        ask = self._cafe()
+        guess = ask("tell me about customer")              # only customer_age matches, but it is a guess
+        self.assertEqual((guess.who, guess.choices), ("scribe", ["yes", "no"]))
+        self.assertIn("customer_age", guess.text)
+        self.assertIn("customer_age is a number column", ask("yes").text)
+        ask("tell me about customer")
+        self.assertEqual(ask("no").who, "sloth")           # declined: the sloth drops it
+        stat = ask("what is the average?")                 # no column named
+        self.assertEqual(stat.choices[0], "quantity")
+        self.assertIn("mean", ask("yes").text)
+        ask("tell me about customer")
+        self.assertEqual(ask("any duplicates?").who, "detective")   # an unrelated question wins over the open one
+
+    def test_cats_list_ambiguous_columns(self):
+        ask = self._chat("weather_main,weather_description,n\nClear,sky,1\nRain,wet,2\n")
+        many = ask("tell me about weather")
+        self.assertEqual(sorted(many.choices), ["all", "weather_description", "weather_main"])
+        self.assertEqual(ask("yes").choices, many.choices)  # "yes" to a list: asks again
+        self.assertIn("weather_main is text", ask("weather_main").text)
 
 
 if __name__ == "__main__":

@@ -76,7 +76,11 @@ python3 -m venv .venv
    `.zip` or a Jupyter notebook.
 5. Chat any time. Ask about outliers, duplicates, missing values, charts,
    correlations, code, or a column by name ("tell me about customer age"): the
-   cat whose job it is answers from the results.
+   sloth passes the question to the cat whose job it is, and that cat answers
+   from the results. Cats remember the last topic, so "and total?" or "is it
+   missing anywhere?" work as follow-ups, and when a question is vague (a
+   partial column name, an average with no column) the cat asks you to confirm,
+   with tap-to-answer buttons.
 
 Top-right buttons: sound (off by default), day/night theme, settings.
 

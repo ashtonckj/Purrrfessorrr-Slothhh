@@ -95,6 +95,11 @@ export const SLOTH = {
     `${name}... only ${rows} rows... cute... i could almost do this myself... almost...`,
   ],
   pick: 'pick the columns... and a target, if you have one in mind...\nor just press start... i trust you... mostly...',
+  asking: ({ cat }) => [
+    `ooh... a question about the data... let me wake the ${cat} cat...`,
+    `mmh... that is the ${cat} cat's department... *pokes cat*`,
+    `i don't know that one... the ${cat} cat does...`,
+  ],
   cancelled: 'okaaay... no work then... my favourite outcome...',
   delegate: [
     'cats... work... i will supervise... from here...',

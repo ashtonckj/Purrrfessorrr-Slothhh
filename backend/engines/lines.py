@@ -69,6 +69,11 @@ CHAT_NO_JOB: list[str] = [
     "hi... drop a csv in the chat first... then i delegate... it's my favourite part...",
     "no file yet... no work yet... perfect... but drop a csv if you must...",
 ]
+CHAT_NEVERMIND = "okay... never mind... *goes back to napping*"
+CHAT_TAP = "tap a column for details."
+CHAT_ASK_ONE = "did you mean {name}? say yes, or name another column."
+CHAT_ASK_MANY = "which one did you mean: {names}{more}? tap one, or say all."
+CHAT_ASK_STAT = "which column? i would guess {name} ({why})... say yes, or name another."
 CHAT_NOT_READY = "the cats are still reading the file... ask me again in a moment..."
 CHAT_HELP = (
     "mmh... i only delegate... ask the cats about outliers, duplicates, missing values, "

@@ -21,7 +21,7 @@ from ..cats import CAT_IDS, paper_total, split_papers
 from ..files import FileInfo, Selection, cell_text, iter_rows
 from ..jobs import Job
 from . import lines
-from .base import Engine
+from .base import Engine, Reply
 
 # Cells that count as missing (compared lower-cased). "None" is deliberately not here:
 # it is often a real answer ("no holiday"), so it stays an ordinary value.
@@ -35,6 +35,17 @@ SCATTER_POINTS = 300
 MAX_BARS = 10
 
 q = json.dumps  # a column or file name as a Python string literal
+
+# Chat: words that make a message a follow-up ("what about it?"), a request for detail, or a stat question.
+FOLLOW_UP = re.compile(r"\b(it|its|that|those|them|same)\b|^\s*(and|also|what about|how about|why)\b")
+MORE = re.compile(r"\b(more|details?|examples?|show me|which rows)\b")
+STAT = re.compile(r"\b(mean|average|median|min|minimum|max|maximum|highest|lowest|biggest|smallest)\b")
+YES = re.compile(r"(yes|yeah|yep|yup|ok|okay|sure|y|please|do it|go ahead)( please)?")
+NO = re.compile(r"(no|nope|nah|n|cancel|never ?mind|forget it)")
+# Words that are not column hints when matching part of a column name.
+CHAT_WORDS = {"show", "tell", "with", "from", "have", "that", "this", "what", "does", "data", "about", "there",
+              "which", "where", "give", "find", "look", "check", "please", "dataset", "file", "column", "columns"}
+MAX_CHOICES = 6
 
 TOPICS: dict[str, tuple[str, ...]] = {   # checked in this order
     "detective": ("outlier", "suspicious", "extreme", "duplicate", "dupe", "type", "weird", "wrong", "strange"),
@@ -113,6 +124,23 @@ class Facts:
     health_score: int
 
 
+@dataclass
+class Pending:
+    """A question a cat asked and is waiting on."""
+    cat: str
+    options: list[Col]
+    default: Col | None               # what "yes" means; None when there are several equal guesses
+    ask: Reply                        # repeated if the user answers with just "yes" to a list
+
+
+@dataclass
+class Convo:
+    """What the cats remember about one job's chat: the last cat and column, and any open question."""
+    cat: str | None = None
+    col: Col | None = None
+    pending: Pending | None = None
+
+
 # ------------------------------------------------------------------ engine
 
 
@@ -122,6 +150,7 @@ class LocalEngine(Engine):
     def __init__(self, speed: float = 1.0) -> None:
         self.speed = speed
         self._facts: dict[str, Facts] = {}    # job id -> facts, for chat
+        self._convo: dict[str, Convo] = {}
 
     async def run(self, job: Job) -> None:
         info = job.file
@@ -172,28 +201,108 @@ class LocalEngine(Engine):
 
     # ----------------------------------------------------------------- chat
 
-    async def chat(self, job: Job | None, message: str) -> tuple[str, str]:
+    async def chat(self, job: Job | None, message: str) -> Reply:
         await asyncio.sleep(0.6 * self.speed)   # sloths reply slowly
         if job is None:
-            return "sloth", random.choice(lines.CHAT_NO_JOB)
+            return Reply("sloth", random.choice(lines.CHAT_NO_JOB))
         facts = self._facts.get(job.id)
         if facts is None:
-            return "sloth", lines.CHAT_NOT_READY
+            return Reply("sloth", lines.CHAT_NOT_READY)
+        convo = self._convo.setdefault(job.id, Convo())
         text = message.lower()
         if any(w in text for w in ("health", "score")):
             score = facts.health_score
             mood = "happy" if score > 80 else "grumpy" if score < 40 else "meh"
-            return "sloth", lines.CHAT_HEALTH.format(score=score, mood=lines.HEALTH_MOOD[mood])
+            return Reply("sloth", lines.CHAT_HEALTH.format(score=score, mood=lines.HEALTH_MOOD[mood]))
+
+        # A cat asked something last turn: this message may be the answer.
+        pending, convo.pending = convo.pending, None
+        if pending:
+            kind, col = _resolve(pending, text, facts)
+            if kind == "no":
+                return Reply("sloth", lines.CHAT_NEVERMIND)
+            if kind == "again":
+                convo.pending = pending
+                return pending.ask
+            if kind != "new":
+                return self._reply(job, facts, convo, pending.cat, col)
 
         col = _mentioned_column(facts, text)
         cat = next((c for c, words in TOPICS.items() if any(w in text for w in words)), None)
-        if col and cat not in ("detective", "janitor"):
+        if col is None:
+            guesses = _fuzzy_columns(facts, text)
+            if guesses:                        # "weather" could be weather_main or weather_description
+                return self._ask(convo, cat or convo.cat or "scribe", guesses, None, facts)
+            if convo.col and FOLLOW_UP.search(text):
+                col = convo.col                # "and what about it?"
+        more = bool(MORE.search(text) and convo.cat)
+        if cat is None and more:
+            cat, col = convo.cat, col or convo.col
+        elif cat is None and col:
+            # Only a short follow-up ("total?", "and region?") keeps the last cat; "tell me about x" is a new ask.
+            short = len(text.split()) <= 3 or FOLLOW_UP.search(text)
+            cat = convo.cat if short and convo.cat in ("detective", "janitor") else "scribe"
+        elif col and cat not in ("detective", "janitor"):
             cat = "scribe"
+        if col is None and STAT.search(text) and facts.measures:
+            default = facts.focus or facts.measures[0]
+            return self._ask(convo, "scribe", [default] + [c for c in facts.measures if c is not default], default, facts)
         if cat is None:
-            return "sloth", lines.CHAT_HELP.format(example=facts.cols[0].name)
+            return Reply("sloth", lines.CHAT_HELP.format(example=facts.cols[0].name))
+        return self._reply(job, facts, convo, cat, col, more)
+
+    def _reply(self, job: Job, facts: Facts, convo: Convo, cat: str, col: Col | None, more: bool = False) -> Reply:
         if cat not in job.results:
-            return cat, lines.CHAT_FAILED if job.finished else lines.CHAT_BUSY[cat]
-        return cat, f"{lines.CHAT_VOICE[cat]} {answer(cat, facts, col, job.results[cat])}"
+            return Reply(cat, lines.CHAT_FAILED if job.finished else lines.CHAT_BUSY[cat])
+        convo.cat, convo.col = cat, col
+        text = f"{lines.CHAT_VOICE[cat]} {answer(cat, facts, col, job.results[cat], more)}"
+        choices = [] if col else _worst_columns(cat, facts)
+        return Reply(cat, text + (f" {lines.CHAT_TAP}" if choices else ""), choices)
+
+    def _ask(self, convo: Convo, cat: str, options: list[Col], default: Col | None, facts: Facts) -> Reply:
+        """Ask the user to confirm or pick a column, and remember that we asked."""
+        names = [c.name for c in options[:MAX_CHOICES]]
+        if default is not None and len(options) > 1:     # stat question without a column
+            why = "your target" if default is facts.target else "the main number column"
+            body, choices = lines.CHAT_ASK_STAT.format(name=default.name, why=why), names
+        elif len(options) == 1:
+            body, choices = lines.CHAT_ASK_ONE.format(name=names[0]), ["yes", "no"]
+        else:
+            more = f" (+{len(options) - MAX_CHOICES} more)" if len(options) > MAX_CHOICES else ""
+            body, choices = lines.CHAT_ASK_MANY.format(names=", ".join(names), more=more), names + ["all"]
+        reply = Reply(cat, f"{lines.CHAT_VOICE[cat]} {body}", choices)
+        convo.pending = Pending(cat, options, default if default is not None else (options[0] if len(options) == 1 else None), reply)
+        return reply
+
+
+def _resolve(pending: Pending, text: str, facts: Facts) -> tuple[str, Col | None]:
+    """Read a message as the answer to a cat's question: ("col", c) | ("all", None) | ("no", None) | ("again", None) | ("new", None)."""
+    t = text.strip(" .!?")
+    if YES.fullmatch(t):
+        return ("col", pending.default) if pending.default else ("again", None)
+    if NO.fullmatch(t):
+        return "no", None
+    if t in ("all", "everything", "overall"):
+        return "all", None
+    col = _mentioned_column(facts, text)
+    return ("col", col) if col else ("new", None)
+
+
+def _fuzzy_columns(facts: Facts, text: str) -> list[Col]:
+    """Columns that share a word with the message but are not named in full ("reading" -> reading_00, ...)."""
+    topic_words = {w for words in TOPICS.values() for w in words}
+    words = {w for w in re.findall(r"[a-z0-9]{4,}", text)
+             if w not in CHAT_WORDS and not any(t in w or w in t for t in topic_words)}
+    return [c for c in facts.cols if words & {t for t in re.split(r"\W|_", c.name.lower()) if len(t) >= 4}]
+
+
+def _worst_columns(cat: str, facts: Facts) -> list[str]:
+    """Columns worth a follow-up tap after a whole-file answer."""
+    if cat == "detective":
+        return [c for c, _ in sorted(facts.outlier_counts.items(), key=lambda kv: -kv[1])[:3]]
+    if cat == "janitor":
+        return [c.name for c in sorted(facts.cols, key=lambda c: -c.missing)[:3] if c.missing]
+    return []
 
 
 def _mentioned_column(facts: Facts, text: str) -> Col | None:
@@ -205,7 +314,7 @@ def _mentioned_column(facts: Facts, text: str) -> Col | None:
     return None
 
 
-def answer(cat: str, facts: Facts, col: Col | None, cards: list[dict]) -> str:
+def answer(cat: str, facts: Facts, col: Col | None, cards: list[dict], more: bool = False) -> str:
     """A cat's chat answer, from the facts (about one column) or its own cards."""
     if col and cat == "detective":
         if col.kind != "number":
@@ -217,6 +326,9 @@ def answer(cat: str, facts: Facts, col: Col | None, cards: list[dict]) -> str:
                f"{col.name} looks clean: no values far outside {_fmt(s['q1'])} to {_fmt(s['q3'])}."
         if col.strays:
             text += f" It also has non-numbers like {', '.join(repr(v) for v in col.strays)}."
+        rows = [e for e in facts.outlier_examples if e[1] == col.name][:3]
+        if more and rows:
+            text += " Most extreme: " + "; ".join(f"row {r[0]} = {_fmt(r[2])}" for r in rows) + "."
         return text
     if col and cat == "janitor":
         pct = col.missing / max(1, facts.rows) * 100

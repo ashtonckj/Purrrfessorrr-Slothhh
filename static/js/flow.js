@@ -57,8 +57,13 @@ function handleText(text) {
   chat.addMessage({ from: 'user', text });
   const reply = api.chat(state.jobId, text).catch(() => ({ from: 'sloth', reply: say(SLOTH.chatFailed) }));
   queue(async () => {
-    const [{ from, reply: answer }] = await Promise.all([reply, chat.showTyping('sloth', 1500)]);
-    chat.addMessage({ from: from ?? 'sloth', text: answer, icon: CAT_ICONS[from] });
+    const [{ from = 'sloth', reply: answer, choices = [] }] = await Promise.all([reply, chat.showTyping('sloth', 1000)]);
+    if (from !== 'sloth') {              // the sloth hands the question to the right cat
+      chat.addMessage({ from: 'sloth', text: say(SLOTH.asking, { cat: NAMES[from].split(' ')[0].toLowerCase() }) });
+      await chat.showTyping(from, 800);
+    }
+    chat.addMessage({ from, text: answer, icon: CAT_ICONS[from],
+      actions: choices.map(label => ({ label, onClick: () => handleText(label) })) });
   });
 }
 

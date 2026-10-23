@@ -19,7 +19,7 @@ Cat ids used everywhere: `detective`, `artist`, `scribe`, `coder`, `janitor`.
 | GET | `/api/results/{job_id}/{cat}` | | `{ cat, ready, cards: [Card] }` |
 | GET | `/api/export/{job_id}/zip` | | `.zip` download (results.json, notebook, per card: README.md, data.csv, chart.json, code.py) |
 | GET | `/api/export/{job_id}/notebook` | | `.ipynb` download |
-| POST | `/api/chat` | `{ "job_id": "..." or null, "message": "..." }` | `{ reply, from }` (`from` is `sloth` or the cat id that answered) |
+| POST | `/api/chat` | `{ "job_id": "..." or null, "message": "..." }` | `{ reply, from, choices }` (`from` is `sloth` or the cat id that answered; `choices` are short follow-ups to show as buttons, sent back as the next `message`). The engine remembers earlier turns of the same job. |
 | GET | `/api/sample.csv` | | sample CSV (12,000-ish rows of cafe sales, with mess baked in) |
 
 Errors use FastAPI's default shape: HTTP status + `{ "detail": "message" }`.

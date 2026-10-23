@@ -29,8 +29,16 @@ Card shape (every key except id/title/description is optional):
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 
 from ..jobs import Job
+
+
+@dataclass
+class Reply:
+    who: str                                   # "sloth" or the cat id that answers
+    text: str
+    choices: list[str] = field(default_factory=list)   # short follow-ups the UI offers as buttons
 
 
 class Engine(ABC):
@@ -41,5 +49,5 @@ class Engine(ABC):
         """Do all five cats' work for `job`, emitting events. Must end with `done`."""
 
     @abstractmethod
-    async def chat(self, job: Job | None, message: str) -> tuple[str, str]:
-        """Answer a free-text message. Returns (who, text): "sloth" or the cat id best placed to answer."""
+    async def chat(self, job: Job | None, message: str) -> Reply:
+        """Answer a free-text message. Engines should remember earlier turns of the same job."""
