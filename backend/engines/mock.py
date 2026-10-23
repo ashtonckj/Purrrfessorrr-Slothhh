@@ -335,7 +335,7 @@ def _scribe_cards(rng: random.Random, info: FileInfo, peek: Peek, stats: dict) -
         {
             "id": "scribe-watch-out",
             "title": "Things to watch out for",
-            "description": " ".join([
+            "description": "\n".join([
                 f"1) {stats['outlier_rows']} rows have extreme values; check them before averaging.",
                 f"2) {len(stats['type_issues'])} number columns are stored as text.",
                 "3) Missing values are not random: they cluster in a few columns.",

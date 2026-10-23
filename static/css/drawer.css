@@ -115,7 +115,7 @@
   padding: 2px 14px 14px;
   border-top: 2px dashed var(--surface-2);
 }
-.card__desc { margin: 10px 0 0; font-size: var(--fs-s); line-height: 1.7; }
+.card__desc { margin: 10px 0 0; font-size: var(--fs-s); line-height: 1.7; white-space: pre-line; }
 
 .card__chart { box-shadow: 0 0 0 2px var(--border); line-height: 0; }
 .card__canvas { display: block; width: 100%; image-rendering: pixelated; }
