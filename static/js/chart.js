@@ -7,7 +7,10 @@
  */
 
 const SERIES = ['--leaf', '--pink', '--blue', '--orange', '--yellow', '--red'];
-const HEIGHT = 240;
+const HEIGHT = 240;      // the usual canvas height; taller when x labels have to be angled
+const MAX_ANGLED = 14;   // characters kept on an angled x label
+let H = HEIGHT;          // height of the chart being drawn right now
+const measure = document.createElement('canvas').getContext('2d');
 
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -51,11 +54,13 @@ function fit(text, maxChars) {
 export function drawChart(canvas, spec) {
   const t = theme();
   const width = Math.max(260, Math.floor(canvas.parentElement?.clientWidth || 480));
+  const plan = xPlan(spec, t, width);
+  H = HEIGHT + plan.extra;
   const dpr = Math.max(1, Math.round(window.devicePixelRatio || 1));
   canvas.width = width * dpr;
-  canvas.height = HEIGHT * dpr;
+  canvas.height = H * dpr;
   canvas.style.width = `${width}px`;
-  canvas.style.height = `${HEIGHT}px`;
+  canvas.style.height = `${H}px`;
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', describe(spec));
 
@@ -63,7 +68,7 @@ export function drawChart(canvas, spec) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = t.bg;
-  ctx.fillRect(0, 0, width, HEIGHT);
+  ctx.fillRect(0, 0, width, H);
 
   ctx.fillStyle = t.ink;
   ctx.font = t.titleFont;
@@ -71,10 +76,10 @@ export function drawChart(canvas, spec) {
   ctx.fillText(fit(spec.title ?? '', Math.floor((width - 24) / (t.charW + 1))), 12, 10);
 
   const draw = { bar: drawBars, hist: drawBars, hbar: drawHBars, line: drawLine, scatter: drawScatter }[spec.type];
-  if (draw) draw(ctx, spec, t, width);
+  if (draw) draw(ctx, spec, t, width, plan);
   else {
     ctx.font = t.font;
-    ctx.fillText(`(chart type "${spec.type}" not supported yet)`, 12, HEIGHT / 2);
+    ctx.fillText(`(chart type "${spec.type}" not supported yet)`, 12, H / 2);
   }
 }
 
@@ -88,8 +93,47 @@ function describe(spec) {
 
 // ------------------------------------------------------------------ pieces
 
-function plotArea(width, left = 52) {
-  return { x0: left, y0: 48, x1: width - 16, y1: HEIGHT - 40 };  // y0 leaves room for title + y label
+function plotArea(width, left = 52, bottom = 40) {
+  return { x0: left, y0: 48, x1: width - 16, y1: H - bottom };  // y0 leaves room for title + y label
+}
+
+/**
+ * How to write the x labels: flat if they fit under their bars, otherwise at 45 degrees (long words
+ * and dates like "2025-10" fit that way), with `extra` pixels of canvas height to hold them.
+ */
+function xPlan(spec, t, width) {
+  const flat = { angle: 0, extra: 0, every: 1 };
+  if (!['bar', 'hist', 'line'].includes(spec.type)) return flat;
+  const labels = (spec.labels ?? []).map(String);
+  const slot = (width - 16 - 52) / Math.max(1, labels.length);
+  measure.font = t.font;
+  const widest = text => labels.reduce((m, l) => Math.max(m, measure.measureText(text(l)).width), 0);
+  if (widest(l => l) <= slot - 6) return flat;
+  const bottom = 34 + Math.ceil(widest(l => fit(l, MAX_ANGLED)) * Math.SQRT1_2);   // labels + gap + x title
+  return { angle: -Math.PI / 4, extra: bottom - 40, every: Math.max(1, Math.ceil(18 / slot)) };
+}
+
+/** The x labels under the axis: `x(i)` is where label i belongs. Angled labels end at their tick. */
+function xLabels(ctx, a, t, labels, x, plan) {
+  ctx.font = t.font;
+  ctx.fillStyle = t.ink;
+  labels.forEach((label, i) => {
+    if (i % plan.every) return;
+    if (!plan.angle) {
+      ctx.textBaseline = 'top';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(label), Math.round(x(i)), a.y1 + 8);
+      return;
+    }
+    ctx.save();
+    ctx.translate(Math.round(x(i)), a.y1 + 8);
+    ctx.rotate(plan.angle);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right';
+    ctx.fillText(fit(label, MAX_ANGLED), 0, 0);
+    ctx.restore();
+  });
+  ctx.textAlign = 'left';
 }
 
 function gridY(ctx, a, t, max, step) {
@@ -118,8 +162,8 @@ function axes(ctx, a, t, spec) {
   ctx.textBaseline = 'alphabetic';
   if (spec.y_label) ctx.fillText(fit(spec.y_label, 30), a.x0 - 2, a.y0 - 12);
   if (spec.x_label) {
-    ctx.textAlign = 'right';
-    ctx.fillText(fit(spec.x_label, 30), a.x1, HEIGHT - 6);
+    ctx.textAlign = 'center';
+    ctx.fillText(fit(spec.x_label, 40), (a.x0 + a.x1) / 2, H - 6);
     ctx.textAlign = 'left';
   }
 }
@@ -138,33 +182,24 @@ function block(ctx, x, y, w, h, color, t) {
   }
 }
 
-function drawBars(ctx, spec, t, width) {
+function drawBars(ctx, spec, t, width, plan) {
   const labels = spec.labels ?? [];
   const values = (spec.values ?? []).map(Number);
-  const a = plotArea(width);
+  const a = plotArea(width, 52, 40 + plan.extra);
   const [max, step] = niceScale(Math.max(...values, 0));
   gridY(ctx, a, t, max, step);
   const n = Math.max(1, values.length);
   const slot = (a.x1 - a.x0) / n;
   const gap = spec.type === 'hist' ? 2 : Math.max(4, slot * 0.28);
-  const maxChars = Math.max(2, Math.floor(slot / t.charW));
-  const every = Math.ceil((t.charW * 4) / slot);       // skip labels if crowded
 
   values.forEach((v, i) => {
     const h = (v / max) * (a.y1 - a.y0);
     const x = a.x0 + i * slot + gap / 2;
     const color = spec.type === 'hist' ? t.colors[0] : t.colors[i % t.colors.length];
     block(ctx, x, a.y1 - h, slot - gap, h, color, t);
-    if (i % every === 0) {
-      ctx.font = t.font;
-      ctx.fillStyle = t.ink;
-      ctx.textBaseline = 'top';
-      ctx.textAlign = 'center';
-      ctx.fillText(fit(labels[i] ?? '', maxChars * every), Math.round(a.x0 + i * slot + slot / 2), a.y1 + 8);
-      ctx.textAlign = 'left';
-    }
   });
-  axes(ctx, a, t, { ...spec, x_label: null });
+  xLabels(ctx, a, t, labels, i => a.x0 + i * slot + slot / 2, plan);
+  axes(ctx, a, t, spec);
 }
 
 function drawHBars(ctx, spec, t, width) {
@@ -172,7 +207,7 @@ function drawHBars(ctx, spec, t, width) {
   const values = (spec.values ?? []).map(Number);
   const labelChars = Math.min(16, Math.max(4, ...labels.map(l => l.length)));
   const a = plotArea(width, 16 + labelChars * t.charW);
-  a.y1 = HEIGHT - 30;
+  a.y1 = H - 40;                                       // room for the value ticks and the x title
   const [max, step] = niceScale(Math.max(...values, 0), 4);
   const n = Math.max(1, values.length);
   const slot = (a.y1 - a.y0) / n;
@@ -199,12 +234,19 @@ function drawHBars(ctx, spec, t, width) {
   ctx.fillStyle = t.ink;
   ctx.fillRect(a.x0 - 2, a.y0, 2, a.y1 - a.y0 + 2);
   ctx.fillRect(a.x0 - 2, a.y1, a.x1 - a.x0 + 2, 2);
+  if (spec.x_label) {
+    ctx.fillStyle = t.muted;
+    ctx.textBaseline = 'alphabetic';
+    ctx.textAlign = 'center';
+    ctx.fillText(fit(spec.x_label, 40), (a.x0 + a.x1) / 2, H - 6);
+    ctx.textAlign = 'left';
+  }
 }
 
-function drawLine(ctx, spec, t, width) {
+function drawLine(ctx, spec, t, width, plan) {
   const labels = spec.labels ?? [];
   const values = (spec.values ?? []).map(Number);
-  const a = plotArea(width);
+  const a = plotArea(width, 52, 40 + plan.extra);
   const [max, step] = niceScale(Math.max(...values, 0));
   gridY(ctx, a, t, max, step);
   const n = Math.max(2, values.length);
@@ -220,11 +262,8 @@ function drawLine(ctx, spec, t, width) {
   ctx.stroke();
   values.forEach((v, i) => block(ctx, px(i) - 5, py(v) - 5, 10, 10, t.colors[1], t));
 
-  const every = Math.ceil((t.charW * 4) / ((a.x1 - a.x0) / n));
-  ctx.font = t.font; ctx.fillStyle = t.ink; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
-  labels.forEach((l, i) => i % every === 0 && ctx.fillText(fit(l, 4), px(i), a.y1 + 8));
-  ctx.textAlign = 'left';
-  axes(ctx, a, t, { ...spec, x_label: null });
+  xLabels(ctx, a, t, labels, px, plan);
+  axes(ctx, a, t, spec);
 }
 
 function drawScatter(ctx, spec, t, width) {
