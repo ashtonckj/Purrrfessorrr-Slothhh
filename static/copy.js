@@ -172,7 +172,10 @@ export const PICKER = {
   ruleValue: 'value (empty = blank cells)',
   ruleRemove: 'Remove this rule',
   showExcluded: 'show excluded rows (struck out)',
-  preview: (n, struck, shown) => `first ${n} rows${struck ? (shown ? ' (struck out = left out)' : `, ${struck} left-out rows hidden`) : ''}`,
+  preview: (n, struck, done) => `${done ? 'all' : 'first'} ${n.toLocaleString('en-US')} rows${struck ? `, ${struck.toLocaleString('en-US')} struck out = left out` : ''}`,
+  previewFailed: 'could not load the preview... the rows will still be analysed',
+  more: 'show 100 more rows',
+  loading: 'loading...',
   cancel: 'cancel',
   start: 'start the cats',
 };

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
 import random
 import re
 import statistics
@@ -18,7 +17,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 
 from ..cats import CAT_IDS, paper_total, split_papers
-from ..files import FileInfo, Selection, cell_text, iter_rows
+from ..files import FileInfo, Selection, cell_matcher as _matcher, cell_text, iter_rows, parse_number as _number
 from ..jobs import Job
 from . import lines
 from .base import Engine, Reply
@@ -56,20 +55,6 @@ TOPICS: dict[str, tuple[str, ...]] = {   # checked in this order
     "scribe": ("summary", "summar", "explain", "describe", "overview", "column", "row", "how many",
                "what is", "mean", "average", "median", "min", "max"),
 }
-
-
-def _number(v: str) -> float | None:
-    try:
-        x = float(v)            # like pandas: "1,200" and "$3" are text
-    except ValueError:
-        return None
-    return x if math.isfinite(x) else None
-
-
-def _matcher(value: str):
-    """Test for an exclude rule: the same text, or the same number (so 0 matches 0.0)."""
-    num = _number(value)
-    return lambda cell: cell == value or (num is not None and _number(cell) == num)
 
 
 def _fmt(x: float) -> str:

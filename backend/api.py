@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 
@@ -13,7 +14,7 @@ from .cats import CATS
 from .config import settings
 from .engines import get_engine
 from .exporters import build_notebook, build_zip
-from .files import Selection, get_file, save_upload
+from .files import Selection, get_file, preview_page, save_upload
 from .jobs import Job, jobs
 from .sample_data import sample_csv
 
@@ -33,6 +34,14 @@ class AnalyzeIn(BaseModel):
     exclude: list[ExcludeRule] = Field(default_factory=list, max_length=50)
 
 
+class PreviewIn(BaseModel):
+    file_id: str
+    exclude: list[ExcludeRule] = Field(default_factory=list, max_length=50)
+    show_excluded: bool = True
+    cursor: int = Field(0, ge=0)          # data rows already seen
+    limit: int = Field(100, ge=1, le=500)
+
+
 class ChatIn(BaseModel):
     job_id: str | None = None
     message: str = Field(min_length=1, max_length=4000)
@@ -50,11 +59,15 @@ def _safe_stem(filename: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", stem)[:60] or "analysis"
 
 
+def _column(i: int, cols: int) -> int:
+    if not 0 <= i < cols:
+        raise HTTPException(422, f"column {i} does not exist (the file has {cols})")
+    return i
+
+
 def _selection(body: AnalyzeIn, cols: int) -> Selection:
     def check(i: int) -> int:
-        if not 0 <= i < cols:
-            raise HTTPException(422, f"column {i} does not exist (the file has {cols})")
-        return i
+        return _column(i, cols)
 
     columns = None if body.columns is None else sorted({check(i) for i in body.columns})
     if columns == []:
@@ -78,6 +91,16 @@ async def get_config() -> dict:
 async def upload(file: UploadFile = File(...)) -> dict:
     info = await save_upload(file)
     return info.public()
+
+
+@router.post("/preview")
+async def preview(body: PreviewIn) -> dict:
+    """A page of the uploaded file for the upload dialog, with the exclude rules applied."""
+    info = get_file(body.file_id)
+    if info is None:
+        raise HTTPException(404, "no such file (upload it again)")
+    rules = [(_column(r.column, info.cols), r.value.strip()) for r in body.exclude]
+    return await asyncio.to_thread(preview_page, info, rules, body.show_excluded, body.cursor, body.limit)
 
 
 @router.post("/analyze")

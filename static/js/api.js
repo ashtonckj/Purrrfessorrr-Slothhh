@@ -49,6 +49,9 @@ export function upload(file, onProgress = () => {}) {
 }
 
 /** @param {{columns?: number[], target?: number|null, exclude?: {column: number, value: string}[]}} [choice] */
+/** A page of the uploaded file with the exclude rules applied (see /api/preview in API.md). */
+export const previewRows = body => post('/api/preview', body);
+
 export const analyze = (fileId, choice = {}) => post('/api/analyze', { file_id: fileId, ...choice });
 
 export const chat = (jobId, message) => post('/api/chat', { job_id: jobId, message });
