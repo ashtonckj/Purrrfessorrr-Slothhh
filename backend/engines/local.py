@@ -52,6 +52,12 @@ def _number(v: str) -> float | None:
     return x if math.isfinite(x) else None
 
 
+def _matcher(value: str):
+    """Test for an exclude rule: the same text, or the same number (so 0 matches 0.0)."""
+    num = _number(value)
+    return lambda cell: cell == value or (num is not None and _number(cell) == num)
+
+
 def _fmt(x: float) -> str:
     return f"{x:,.0f}" if float(x).is_integer() else f"{x:,.2f}"
 
@@ -250,13 +256,14 @@ def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
     keep = sel.columns if sel.columns is not None else list(range(len(info.columns)))
     rows: list[list[str]] = []
     excluded_rows = 0
+    rules = [(j, _matcher(value)) for j, value in sel.exclude]
     row_ids: list[int] = []                    # each kept row's data row number in the file
     # shortcut: whole file held in memory; stream it in two passes if huge uploads matter.
     for i, raw in enumerate(iter_rows(info)):
         if i == 0:
             continue                           # header
         cells = [cell_text(raw[j]) if j < len(raw) else "" for j in range(len(info.columns))]
-        if any(cells[j] == value for j, value in sel.exclude):
+        if any(match(cells[j]) for j, match in rules):
             excluded_rows += 1
             continue
         rows.append([cells[j] for j in keep])
@@ -429,7 +436,9 @@ def _loader(f: Facts) -> str:
             else f"pd.read_csv({q(f.filename)}{', sep=chr(9)' if name.endswith('.tsv') else ''})")
     code = f"df = {read}"
     for col, value in f.excluded:
-        code += f"\ndf = df[df[{q(col)}].astype(str).str.strip() != {q(value)}]"
+        num = _number(value)
+        code += (f"\ndf = df[pd.to_numeric(df[{q(col)}], errors=\"coerce\") != {num!r}]" if num is not None
+                 else f"\ndf = df[df[{q(col)}].astype(str).str.strip() != {q(value)}]")
     if len(f.cols) < f.all_columns:
         code += f"\ndf = df[[{', '.join(q(c.name) for c in f.cols)}]]"
     return code

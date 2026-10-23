@@ -5,6 +5,10 @@
 import { PICKER } from '../copy.js';
 import { el, icon } from './ui.js';
 
+const NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+/** Same text, or the same number (0 equals 0.0). Mirrors _matcher in backend/engines/local.py. */
+const same = (cell, value) => cell === value || (NUMBER.test(cell) && NUMBER.test(value) && Number(cell) === Number(value));
+
 /**
  * @param {{ filename: string, columns: string[], preview: string[][] }} info  the /api/upload response
  * @returns {Promise<{ columns: number[], target: number|null, exclude: {column: number, value: string}[] } | null>}
@@ -17,6 +21,8 @@ export function pickColumns(info) {
   const rules = el('div', { class: 'picker__rules' });
   const preview = el('div', { class: 'card__table-wrap picker__preview' });
   const start = el('button', { type: 'submit', class: 'btn btn--primary', value: 'start' }, PICKER.start);
+  const showExcluded = el('input', { type: 'checkbox', checked: true });
+  const showLabel = el('label', { class: 'picker__col', hidden: true }, showExcluded, el('span', { text: PICKER.showExcluded }));
 
   const chosen = () => checks.filter(c => c.checked).map(c => Number(c.value));
   const ruleList = () => [...rules.children].map(r => ({
@@ -32,11 +38,15 @@ export function pickColumns(info) {
 
   function paintPreview() {
     const keep = chosen();
-    const excluded = row => ruleList().some(r => (row[r.column] ?? '') === r.value);
+    const active = ruleList();
+    const excluded = row => active.some(r => same(row[r.column] ?? '', r.value));
+    const struck = info.preview.filter(excluded).length;
+    const rows = showExcluded.checked ? info.preview : info.preview.filter(row => !excluded(row));
+    showLabel.hidden = active.length === 0;
     preview.replaceChildren(el('table', { class: 'card__table' },
-      el('caption', { text: PICKER.preview(info.preview.length) }),
+      el('caption', { text: PICKER.preview(rows.length, struck, showExcluded.checked) }),
       el('thead', {}, el('tr', {}, keep.map(i => el('th', { scope: 'col', text: cols[i] })))),
-      el('tbody', {}, info.preview.map(row => el('tr', { class: excluded(row) ? 'is-excluded' : '' },
+      el('tbody', {}, rows.map(row => el('tr', { class: excluded(row) ? 'is-excluded' : '' },
         keep.map(i => el('td', { text: row[i] ?? '' })))))));
     start.disabled = keep.length === 0;
   }
@@ -58,6 +68,7 @@ export function pickColumns(info) {
 
   const setAll = on => { checks.forEach(c => { c.checked = on; }); paintTarget(); paintPreview(); };
   checks.forEach(c => c.addEventListener('change', () => { paintTarget(); paintPreview(); }));
+  showExcluded.addEventListener('change', paintPreview);
 
   const form = el('form', { method: 'dialog', class: 'picker__fill px-fill' },
     el('h2', { id: 'picker-title', text: PICKER.title(info.filename) }),
@@ -72,7 +83,8 @@ export function pickColumns(info) {
     el('fieldset', { class: 'picker__group' },
       el('legend', { text: PICKER.rows }),
       rules,
-      el('button', { type: 'button', class: 'btn', onclick: addRule }, PICKER.addRule)),
+      el('button', { type: 'button', class: 'btn', onclick: addRule }, PICKER.addRule),
+      showLabel),
     preview,
     el('div', { class: 'settings__foot' },
       el('button', { type: 'button', class: 'btn', onclick: () => dialog.close('') }, PICKER.cancel),

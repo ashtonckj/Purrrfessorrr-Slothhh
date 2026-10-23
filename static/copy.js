@@ -166,7 +166,8 @@ export const PICKER = {
   ruleIs: 'is',
   ruleValue: 'value (empty = blank cells)',
   ruleRemove: 'Remove this rule',
-  preview: n => `first ${n} rows (struck out = left out)`,
+  showExcluded: 'show excluded rows (struck out)',
+  preview: (n, struck, shown) => `first ${n} rows${struck ? (shown ? ' (struck out = left out)' : `, ${struck} left-out rows hidden`) : ''}`,
   cancel: 'cancel',
   start: 'start the cats',
 };

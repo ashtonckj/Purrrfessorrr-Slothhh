@@ -72,6 +72,19 @@ class LocalEngineTest(unittest.TestCase):
             analyse(info, Selection(exclude=[(store, v) for v in ("Campus", "Riverside", "Old Town", "Harbour", "Station",
                                                                      "CAMPUS", "RIVERSIDE", "OLD TOWN", "HARBOUR", "STATION")]))
 
+    def test_exclude_treats_zero_and_zero_point_zero_alike(self):
+        path = self.dir / "z.csv"
+        path.write_text("n,label\n0,a\n0.0,b\n0.00,c\n1,d\n,e\n")
+        info = _file(path)
+        facts = analyse(info, Selection(exclude=[(0, "0")]))
+        self.assertEqual((facts.rows, facts.excluded_rows), (2, 3))     # the blank cell is not zero
+        facts = analyse(info, Selection(exclude=[(0, "0.0")]))
+        self.assertEqual(facts.excluded_rows, 3)
+        facts = analyse(info, Selection(exclude=[(1, "a")]))
+        self.assertEqual(facts.excluded_rows, 1)
+        self.assertIn('pd.to_numeric(df["n"], errors="coerce") != 0.0',
+                      BUILDERS["coder"](analyse(info, Selection(exclude=[(0, "0")])))[0]["code"]["python"])
+
     def test_chat_routes_to_the_right_cat(self):
         path = self.dir / "cafe.csv"
         path.write_bytes(sample_csv())
