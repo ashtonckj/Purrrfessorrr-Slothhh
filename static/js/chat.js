@@ -142,8 +142,8 @@ function inlineCode(text) {
   return parts.map((part, i) => (i % 2 ? el('code', { class: 'msg__code', text: part }) : part));
 }
 
-/** Show the sender's typing dots for `ms`, then remove them. */
-export async function showTyping(from, ms) {
+/** Show the sender's typing dots for at least `ms`, and until `until` (a promise, e.g. a slow model reply) settles. */
+export async function showTyping(from, ms, until = null) {
   const prevSender = lastSender;
   const msg = addMessage({ from, extra: [el('div', { class: 'typing', 'aria-label': `${NAMES[from]} is typing` },
     el('span'), el('span'), el('span'))] });
@@ -151,7 +151,7 @@ export async function showTyping(from, ms) {
   msg.querySelector('.msg__meta').remove();
   const prevStatus = statusEl.dataset.status;
   if (from === 'sloth') setStatus('typing');
-  await sleep(ms);
+  await Promise.all([sleep(ms), until]);
   msg.remove();
   lastSender = prevSender;
   if (from === 'sloth') setStatus(prevStatus);

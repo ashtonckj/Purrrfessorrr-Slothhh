@@ -67,7 +67,8 @@ function handleText(text, { tapped = false } = {}) {
   const replies = api.chat(state.jobId, text).then(r => r.replies, () => [{ from: 'sloth', reply: say(SLOTH.chatFailed) }]);
   queue(async () => {
     const typist = tapped && state.lastCat ? state.lastCat : 'sloth';
-    const [answers] = await Promise.all([replies, chat.showTyping(typist, 1000)]);
+    // The dots stay until the answer arrives: a model can take many seconds, and vanishing dots look like a refusal.
+    const [answers] = await Promise.all([replies, chat.showTyping(typist, 1000, replies)]);
     const cats = [...new Set(answers.map(r => r.from).filter(from => from !== 'sloth'))];
     if (cats.length && !tapped && !answers[0].followup) {
       chat.addMessage({ from: 'sloth', text: cats.length === 1
