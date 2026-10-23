@@ -255,7 +255,7 @@
 .pbar__seg.on { background: var(--leaf); }
 .station[data-state="done"] .pbar__seg.on { background: var(--forest); }
 .station[data-state="error"] .pbar__seg.on { background: var(--red); }
-:root[data-theme="night"] .pbar__seg { background: #4a4250; }
+:root[data-theme="night"] .pbar__seg:not(.on) { background: var(--charcoal); }
 
 /* the little runner sits on top of the bar */
 .pbar__runner {
