@@ -114,22 +114,6 @@
 }
 .boss__stack[hidden] { display: none; }
 
-.capped-note {
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 10px);
-  margin-left: -110px;
-  width: 220px;
-  text-align: center;
-  padding: 6px 8px;
-  font-size: var(--fs-xs);
-  line-height: 1.5;
-  background: var(--yellow);
-  color: var(--ink);
-  box-shadow: 0 0 0 2px var(--ink), 3px 3px 0 2px var(--ink);
-  transform: rotate(-2deg);
-}
-.capped-note[hidden] { display: none; }
 
 /* speech bubble to the right of the sloth */
 .speech {
@@ -255,7 +239,7 @@
 .pbar__seg.on { background: var(--leaf); }
 .station[data-state="done"] .pbar__seg.on { background: var(--forest); }
 .station[data-state="error"] .pbar__seg.on { background: var(--red); }
-:root[data-theme="night"] .pbar__seg { background: #4a4250; }
+:root[data-theme="night"] .pbar__seg:not(.on) { background: var(--charcoal); }
 
 /* the little runner sits on top of the bar */
 .pbar__runner {
@@ -316,4 +300,9 @@
 @keyframes btn-flash {
   0% { background: var(--yellow); color: var(--ink); }
   50% { background: var(--surface); }
+}
+:root[data-theme="night"] .station .btn.flash { animation-name: btn-flash-night; }
+@keyframes btn-flash-night {
+  0% { background: var(--tan); color: var(--ink); }
+  50% { background: var(--cream-shadow); }
 }

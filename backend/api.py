@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 
@@ -13,7 +14,7 @@ from .cats import CATS
 from .config import settings
 from .engines import get_engine
 from .exporters import build_notebook, build_zip
-from .files import get_file, save_upload
+from .files import Selection, get_file, preview_page, save_upload
 from .jobs import Job, jobs
 from .sample_data import sample_csv
 
@@ -21,8 +22,24 @@ router = APIRouter(prefix="/api")
 engine = get_engine()
 
 
+class ExcludeRule(BaseModel):
+    column: int
+    value: str = Field(max_length=1000)
+
+
 class AnalyzeIn(BaseModel):
     file_id: str
+    columns: list[int] | None = None      # None = all
+    target: int | None = None
+    exclude: list[ExcludeRule] = Field(default_factory=list, max_length=50)
+
+
+class PreviewIn(BaseModel):
+    file_id: str
+    exclude: list[ExcludeRule] = Field(default_factory=list, max_length=50)
+    show_excluded: bool = True
+    cursor: int = Field(0, ge=0)          # data rows already seen
+    limit: int = Field(100, ge=1, le=500)
 
 
 class ChatIn(BaseModel):
@@ -42,13 +59,29 @@ def _safe_stem(filename: str) -> str:
     return re.sub(r"[^A-Za-z0-9_-]+", "_", stem)[:60] or "analysis"
 
 
+def _column(i: int, cols: int) -> int:
+    if not 0 <= i < cols:
+        raise HTTPException(422, f"column {i} does not exist (the file has {cols})")
+    return i
+
+
+def _selection(body: AnalyzeIn, cols: int) -> Selection:
+    def check(i: int) -> int:
+        return _column(i, cols)
+
+    columns = None if body.columns is None else sorted({check(i) for i in body.columns})
+    if columns == []:
+        raise HTTPException(422, "pick at least one column")
+    if body.target is not None and check(body.target) not in (columns or [body.target]):
+        raise HTTPException(422, "the target must be one of the chosen columns")
+    return Selection(columns, body.target, [(check(r.column), r.value.strip()) for r in body.exclude])
+
+
 @router.get("/config")
 async def get_config() -> dict:
     """Small bits of server state the settings panel shows."""
     return {
-        "mock_mode": settings.mock_mode,
         "engine": engine.name,
-        "model_name": settings.model_name,
         "max_upload_mb": settings.max_upload_mb,
         "cats": CATS,
     }
@@ -60,12 +93,22 @@ async def upload(file: UploadFile = File(...)) -> dict:
     return info.public()
 
 
+@router.post("/preview")
+async def preview(body: PreviewIn) -> dict:
+    """A page of the uploaded file for the upload dialog, with the exclude rules applied."""
+    info = get_file(body.file_id)
+    if info is None:
+        raise HTTPException(404, "no such file (upload it again)")
+    rules = [(_column(r.column, info.cols), r.value.strip()) for r in body.exclude]
+    return await asyncio.to_thread(preview_page, info, rules, body.show_excluded, body.cursor, body.limit)
+
+
 @router.post("/analyze")
 async def analyze(body: AnalyzeIn) -> dict:
     info = get_file(body.file_id)
     if info is None:
         raise HTTPException(404, "no such file (upload it again)")
-    job = jobs.create(info)
+    job = jobs.create(info, _selection(body, info.cols))
 
     async def runner() -> None:
         try:
@@ -130,10 +173,9 @@ async def export_notebook(job_id: str) -> Response:
 @router.post("/chat")
 async def chat(body: ChatIn) -> dict:
     job = jobs.get(body.job_id) if body.job_id else None
-    reply = await engine.chat(job, body.message)
-    if job is not None:
-        job.chat_history += [{"role": "user", "text": body.message}, {"role": "sloth", "text": reply}]
-    return {"reply": reply}
+    replies = await engine.chat(job, body.message)
+    return {"replies": [{"from": r.who, "reply": r.text, "choices": r.choices, "code": r.code, "followup": r.followup}
+                        for r in replies]}
 
 
 @router.get("/sample.csv")

@@ -2,11 +2,9 @@
  * Chat panel: rendering only (bubbles, typing dots, input, drag & drop).
  * The conversation logic lives in flow.js.
  */
-import { NAMES, STATUS, UI } from '../copy.js';
+import { CAT_IDS, NAMES, STATUS, UI } from '../copy.js';
 import { createSprite } from './sprites.js';
-import { el, icon, formatBytes, formatNumber, prefersReducedMotion, sleep, timeNow } from './ui.js';
-
-const CAT_IDS = ['detective', 'artist', 'scribe', 'coder', 'janitor']; // name colours: chat.css
+import { el, icon, formatBytes, formatNumber, moodFor, prefersReducedMotion, sleep, timeNow } from './ui.js';
 
 let root, log, field, statusEl, fileInput;
 let lastSender = null;
@@ -114,7 +112,7 @@ export function addMessage({ from, text = '', icon: iconId, extra = [], actions 
   const cont = lastSender === from;
   lastSender = from;
 
-  const textEl = el('p', { class: 'msg__text' }, text);
+  const textEl = el('p', { class: 'msg__text' }, inlineCode(text));
   if (iconId) textEl.append(createSprite(iconId, { scale: 1 }));
 
   const body = el('div', { class: 'bubble__body' },
@@ -135,6 +133,13 @@ export function addMessage({ from, text = '', icon: iconId, extra = [], actions 
   log.append(msg);
   scrollToEnd();
   return msg;
+}
+
+/** `backticks` in a message become inline code; an odd one out is left as typed. */
+function inlineCode(text) {
+  const parts = text.split('`');
+  if (parts.length < 3 || parts.length % 2 === 0) return text;
+  return parts.map((part, i) => (i % 2 ? el('code', { class: 'msg__code', text: part }) : part));
 }
 
 /** Show the sender's typing dots for `ms`, then remove them. */
@@ -184,7 +189,7 @@ export function addFileMessage(file) {
 
 /** Health meter node for the sloth's verdict bubble. */
 export function healthMeter(score) {
-  const color = score > 80 ? 'var(--leaf)' : score < 40 ? 'var(--red)' : 'var(--yellow)';
+  const color = { happy: 'var(--leaf)', grumpy: 'var(--red)', idle: 'var(--yellow)' }[moodFor(score)];
   const on = Math.round(score / 10);
   return el('div', { class: 'health', role: 'meter', 'aria-valuemin': '0', 'aria-valuemax': '100',
     'aria-valuenow': String(score), 'aria-label': UI.health },
@@ -200,8 +205,4 @@ export function setStatus(key) {
 
 export function setBusy(busy) {
   field.placeholder = busy ? UI.inputPlaceholderBusy : UI.inputPlaceholder;
-}
-
-export function focusInput() {
-  field.focus();
 }

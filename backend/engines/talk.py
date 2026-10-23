@@ -1,0 +1,164 @@
+"""Conversation helpers that need no analysis facts: small talk, questions about the generated
+code, and finding the card that answers a question. Pure functions over the cats' cards, so the
+engine can call them without this module knowing anything about how the cards were made.
+"""
+
+from __future__ import annotations
+
+import random
+import re
+
+from ..cats import CAT_IDS
+from . import lines
+
+Results = dict[str, list[dict]]
+
+# ------------------------------------------------------------- many questions
+
+# A new question starts after "?", ";" or a new line, or at "and/also/then/plus" followed by a question word.
+# "highest and lowest temp" stays one question (both stats), so a stat word alone does not split.
+STARTERS = r"what|what's|whats|which|how|show|list|is|are|does|do|did|can|could|would|tell|give|any|who|why|where|when"
+SPLIT_AT = re.compile(rf"\s*\?+\s*|\s*[;\n]+\s*|,?\s+(?:and|also|then|plus)\s+(?=(?:{STARTERS})\b)", re.I)
+
+
+def split_questions(message: str) -> list[str]:
+    """The separate questions in one message, in order."""
+    parts = []
+    for p in SPLIT_AT.split(message):
+        p = re.sub(r"^(?:(?:and|also|then|plus)\b[\s,]*)+", "", p.strip(" ,.!"), flags=re.I)   # "? and also are..."
+        p = re.sub(r"(?:[\s,]+(?:and|also|then|plus))+$", "", p, flags=re.I)
+        parts.append(p)
+    return [p for p in parts if len(p) > 1] or [message.strip()]
+
+
+# ---------------------------------------------------------------- small talk
+
+GREET = re.compile(r"^\s*(hi|hello|hey|hiya|yo|good (morning|afternoon|evening))\b")
+THANKS = re.compile(r"\b(thanks|thank you|thx|cheers|appreciate)\b|^\s*(great|awesome|nice|cool|perfect|amazing|wow)\W*$")
+BYE = re.compile(r"\b(bye|goodbye|see you|good night|cya)\b")
+WHO = re.compile(r"\b(who are you|what are you|are you (an? )?(ai|bot|llm|robot|human|real|chatgpt)|which ai|"
+                 r"(is|are) (this|you|the (chat|sloth|cats?)) (an? )?(ai|llm|gpt|chatgpt|powered)|"
+                 r"language model|llm|chatgpt|gpt|ollama|gemma|claude|openai)\b")
+HELP = re.compile(r"\b(what can you do|what can i ask|what do you do|how does this work|how do i use)\b")
+REPEAT = re.compile(r"\b(repeat|say that again|say it again|what did you say|come again)\b|^\s*(again|huh|what)\W*$")
+
+
+def small_talk(text: str) -> str | None:
+    """A sloth reply for greetings, thanks, goodbyes and "are you an AI?"; None for anything else."""
+    short = len(text.split())
+    if short <= 3 and GREET.search(text):
+        return random.choice(lines.CHAT_GREET)
+    if short <= 4 and THANKS.search(text):
+        return random.choice(lines.CHAT_THANKS)
+    if short <= 4 and BYE.search(text):
+        return lines.CHAT_BYE
+    if WHO.search(text):
+        return lines.CHAT_WHO
+    return None
+
+
+# --------------------------------------------------------------- find a card
+
+STOP = {"what", "does", "about", "that", "this", "with", "from", "have", "there", "which", "your", "could", "please",
+        "tell", "show", "give", "here", "them", "they", "will", "would", "the", "and", "are", "for", "you", "how",
+        "why", "can", "did", "its", "any", "use", "uses", "used", "many", "much", "rows", "row", "column", "columns",
+        "data", "dataset", "code", "snippet"}
+# What a chart type is called in plain words, so "what does the histogram show" finds the histogram card.
+CHART_WORDS = {"hist": "histogram distribution", "bar": "bar category", "hbar": "bar", "line": "line trend time",
+               "scatter": "scatter correlation relationship"}
+
+
+def _stems(text: str) -> set[str]:
+    """Words of a text, cut to 6 letters so "duplicates" meets "duplicated"."""
+    return {w[:6] for w in re.findall(r"[a-z0-9]{3,}", text.lower()) if w not in STOP}
+
+
+def find_card(results: Results, text: str, only: str | None = None, need_code: bool = False) -> tuple[str, dict] | None:
+    """The (cat, card) whose title, id, chart type or description best matches the message, if any does."""
+    asked = _stems(text)
+    best, best_score = None, 0
+    for cat in ([only] if only else CAT_IDS):
+        for card in results.get(cat, []):
+            if need_code and not (card.get("code") or {}).get("python"):
+                continue
+            chart = card.get("chart") or {}
+            title = _stems(f"{card['title']} {card['id'].replace('-', ' ')} {chart.get('title', '')} "
+                           f"{CHART_WORDS.get(chart.get('type'), '')}")
+            score = 3 * len(asked & title) + len(asked & _stems(card.get("description", "")))
+            if score > best_score:
+                best, best_score = (cat, card), score
+    return best if best_score >= 2 else None
+
+
+# ----------------------------------------------------------- code questions
+
+# Whole words only: "import" must not match "important", nor "code" the column "zip_code".
+CODE = re.compile(r"\b(code|python|snippets?|script|execute|run (it|this|that|them|these)|seed|random_state|random (seed|state)|randomness|reproducib\w*|"
+                  r"librar(y|ies)|imports?|install|pip|pandas|sklearn|scikit|matplotlib|notebook|ipynb|model|"
+                  r"baseline|regression|classif\w*|predict\w*|train\w*|test.?size|function)\b")
+SEED = re.compile(r"seed|random|reproducib|same (results?|split)")
+LIBS = re.compile(r"librar|import|package|install|depend|pip|pandas|sklearn|scikit|matplotlib")
+SHOW = re.compile(r"\b(show|give|print|paste|see|display|write|send)\b")
+SPLIT = re.compile(r"split|train|test.?size|hold.?out")
+MODEL = re.compile(r"model|algorithm|regression|classif|predict|baseline|accuracy|r2|r\^2|\bfit\b")
+NOTEBOOK = re.compile(r"notebook|ipynb|export|\bzip\b|download")
+RUN = re.compile(r"\b(run|execute|where|path|folder|directory|load|open)\b|read_csv|read_excel|which file|what file")
+EXPLAIN = re.compile(r"\b(explain|walk|what does|how does|how do|step|mean)\b")
+PIP_NAMES = {"sklearn": "scikit-learn"}
+MAX_CODE_LINES = 30
+
+
+def code_answer(results: Results, text: str) -> tuple[str, str, list[str], dict | None]:
+    """Answer a question about the generated Python from the cards' own code: (cat, text, choices, code).
+
+    `code` is a {"python", "r"} pair shown in a code box; short bits of code go inline in `backticks`.
+    Follow-up suggestions are only offered when the question was too vague to answer.
+    """
+    snippets = [(cat, c) for cat in CAT_IDS for c in results.get(cat, []) if (c.get("code") or {}).get("python")]
+    if not snippets:
+        return "coder", "nothing to run yet: no snippets were written for this file.", [], None
+    code = "\n".join(c["code"]["python"] for _, c in snippets)
+    baseline = next((c for _, c in snippets if c["id"] == "coder-baseline"), None)
+    seed = (re.findall(r"random_state=(\d+)", code) or [None])[0]
+
+    if SEED.search(text):
+        if seed:
+            return "coder", (f"the only random step is the train/test split in the baseline model: `random_state={seed}`, "
+                             "so it splits the same way every run. nothing else is random."), [], None
+        return "coder", ("none of the snippets use randomness, so there is no seed to set. the baseline model only "
+                         "appears when the data has a number column to predict."), [], None
+    if LIBS.search(text):
+        found = list(dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.M)))
+        pip = [PIP_NAMES.get(m, m) for m in found] + (["openpyxl"] if "read_excel" in code else [])
+        return "coder", f"the snippets import {', '.join(found)}. install them with `pip install {' '.join(pip)}`", [], None
+    if re.search(r"\br\b|rstudio|tidyverse|ggplot", text):
+        return "coder", "R is marked 'soon' in the results: only Python snippets for now.", [], None
+    if SHOW.search(text):
+        cat, card = find_card(results, text, need_code=True) or next(
+            ((cat, c) for cat, c in snippets if c["id"] == "coder-load"), snippets[0])
+        return cat, f"{card['title']}:", [], card["code"]
+    if SPLIT.search(text) or MODEL.search(text):
+        if baseline is None:
+            return "coder", ("there is no model snippet: the chosen columns have no number column to predict. "
+                             "pick a target (or keep a number column) and start again."), [], None
+        model = (re.search(r"make_pipeline\(prep, (\w+)", code) or [None, "a model"])[1]
+        size = (re.search(r"test_size=([\d.]+)", code) or [None, "0.2"])[1]
+        if SPLIT.search(text) and not re.search(r"model|predict|baseline", text):
+            return "coder", (f"it holds out {float(size):.0%} of the rows for testing (`test_size={size}`) and trains on "
+                             f"the rest, with `random_state={seed}`."), [], None
+        return "coder", (f"{baseline['description']} it fills gaps (median for numbers, most frequent for text), "
+                         f"one-hot encodes the text columns, splits {1 - float(size):.0%}/{float(size):.0%} and fits "
+                         f"`{model}`."), [], None
+    if NOTEBOOK.search(text):
+        return "coder", ("open any cat's results and use 'Export notebook (.ipynb)' or 'Download everything (.zip)' "
+                         "at the bottom: every snippet is in the notebook, in order."), [], None
+    if RUN.search(text):
+        loader = (re.search(r"df = (pd\.read_\w+\([^\n]*\))", code) or [None, "pd.read_csv(...)"])[1]
+        return "coder", (f"start with 'Load and peek': `df = {loader}`. keep the file next to your script or notebook, "
+                         "then run the snippets top to bottom (the notebook export has them in order)."), [], None
+    if EXPLAIN.search(text):
+        cat, card = find_card(results, text, need_code=True) or ("coder", baseline or snippets[0][1])
+        return cat, f"{card['title']}: {card['description']}", [], None
+    titles = "; ".join(c["title"] for cat, c in snippets if cat == "coder")
+    return "coder", f"i wrote {len(snippets)} snippets ({titles} and more from the other cats). ask about them:", [
+        "which libraries does the code use?", "what seed does it use?", "show the code to load the data"], None

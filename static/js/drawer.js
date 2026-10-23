@@ -3,15 +3,14 @@
  * accordion "dropdowns" (chart, data preview, code, downloads).
  * Opened by the `drawer:open { cat }` bus event (cat click or Results button).
  */
-import { CAT_ICONS, DRAWER, NAMES, ROLES } from '../copy.js';
+import { CAT_ICONS, CAT_IDS, DRAWER, NAMES, ROLES } from '../copy.js';
 import * as api from './api.js';
-import { emit, on } from './bus.js';
+import { on } from './bus.js';
 import { drawChart } from './chart.js';
+import { copyButton, renderCode } from './codebox.js';
 import { createSprite } from './sprites.js';
-import { highlight } from './syntax.js';
 import { el, icon, prefersReducedMotion } from './ui.js';
 
-const CAT_IDS = ['detective', 'artist', 'scribe', 'coder', 'janitor'];
 const PREVIEW_ROWS = 5;
 
 const state = {
@@ -175,9 +174,7 @@ function renderCard(cat, card, openByDefault) {
 
   const actions = el('div', { class: 'card__actions' });
   if (code) {
-    const copyBtn = el('button', { type: 'button', class: 'btn' }, icon('copy', { scale: 1 }), el('span', { text: DRAWER.copyCode }));
-    copyBtn.addEventListener('click', () => copyCode(copyBtn, code.current()));
-    actions.append(copyBtn);
+    actions.append(copyButton(code.current));
   }
   if (canvas) {
     actions.append(el('button', { type: 'button', class: 'btn', onclick: () => downloadCanvas(canvas, `${card.id}.png`) },
@@ -208,59 +205,7 @@ function renderTable(table) {
       el('tbody', {}, rows.map(r => el('tr', {}, r.map(v => el('td', { text: v == null ? '' : String(v) })))))));
 }
 
-/** Code block with a Python / R toggle. R without code shows a disabled "soon" tab. */
-function renderCode(code, openByDefault) {
-  let lang = code.python ? 'python' : 'r';
-  const pre = el('pre', { class: 'code__pre', tabindex: '0' });
-  const codeEl = el('code', {});
-  pre.append(codeEl);
-  const paint = () => {
-    codeEl.innerHTML = highlight(code[lang] ?? '', lang);
-    codeEl.className = `lang-${lang}`;
-    for (const b of toggle.querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
-  };
-
-  const tab = (id, label) => {
-    const available = Boolean(code[id]);
-    return el('button', { type: 'button', class: 'code__tab', 'data-lang': id, disabled: !available,
-      onclick: () => { lang = id; paint(); } },
-      label, available ? null : el('span', { class: 'tag', text: DRAWER.soon }));
-  };
-  const toggle = el('div', { class: 'code__toggle', role: 'group', 'aria-label': 'Language' },
-    tab('python', DRAWER.python), tab('r', DRAWER.r));
-
-  const inner = el('div', { class: 'code' }, toggle, pre);
-  paint();
-
-  // Coder Cat shows code up front; other cats tuck it away.
-  const node = openByDefault ? inner
-    : el('details', { class: 'code__more' }, el('summary', { text: DRAWER.showCode }), inner);
-  return { node, current: () => code[lang] ?? '' };
-}
-
 // ---------------------------------------------------------------- actions
-
-async function copyCode(btn, text) {
-  const label = btn.querySelector('span:last-child');
-  let ok = true;
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // Fallback for browsers that block the async clipboard API.
-    const ta = el('textarea', { style: { position: 'fixed', opacity: '0' } }, text);
-    document.body.append(ta);
-    ta.select();
-    ok = document.execCommand('copy');
-    ta.remove();
-  }
-  label.textContent = ok ? DRAWER.copied : DRAWER.copyFailed;
-  btn.querySelector('.sprite')?.replaceWith(icon(ok ? 'check' : 'warning', { scale: 1 }));
-  if (ok) emit('sound', { name: 'copy' });
-  setTimeout(() => {
-    label.textContent = DRAWER.copyCode;
-    btn.querySelector('.sprite')?.replaceWith(icon('copy', { scale: 1 }));
-  }, 1600);
-}
 
 function saveBlob(blob, filename) {
   const url = URL.createObjectURL(blob);

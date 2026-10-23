@@ -31,6 +31,8 @@ export const ROLES = {
   janitor: 'preprocessing and cleaning',
 };
 
+export const CAT_IDS = Object.keys(ROLES);
+
 /** Icon shown next to each cat's chat messages (manifest ids). */
 export const CAT_ICONS = {
   detective: 'icon_magnifier',
@@ -44,15 +46,10 @@ export const UI = {
   tagline: 'a very lazy data science office',
   settings: 'Settings',
   settingsTitle: 'settings',
-  model: 'model',
-  mode: 'mode',
-  modeMock: 'mock (pretend cats)',
-  modeReal: 'real',
+  engine: 'engine',
+  engines: { local: 'local stats (every row)' },
   sample: 'sample csv',
   sampleLink: 'download sample',
-  theme: 'theme',
-  themeDay: 'day',
-  themeNight: 'night',
   soundToggle: 'Sound effects',
   soundIsOn: 'sound: on (click to mute)',
   soundIsOff: 'sound: off (click for blips)',
@@ -97,22 +94,32 @@ export const SLOTH = {
   receivedTiny: ({ name, rows }) => [
     `${name}... only ${rows} rows... cute... i could almost do this myself... almost...`,
   ],
+  pick: 'pick the columns... and a target, if you have one in mind...\nor just press start... i trust you... mostly...',
+  asking: ({ cat }) => [
+    `ooh... a question about the data... let me wake the ${cat} cat...`,
+    `mmh... that is the ${cat} cat's department... *pokes cat*`,
+    `i don't know that one... the ${cat} cat does...`,
+  ],
+  askingMany: ({ cats }) => [
+    `ooh... a pile of questions... ${cats} cats, wake up...`,
+    `mmh... that is work for the ${cats} cats... *pokes them*`,
+  ],
+  cancelled: 'okaaay... no work then... my favourite outcome...',
   delegate: [
     'cats... work... i will supervise... from here...',
     'okaaay... passing the jobs to the cats...\nwake me when it is done...',
     'time to delegate... my favourite sport...',
   ],
-  papers: ({ papers }) => `${papers} papers... one for each of you... roughly...`,
-  papersCapped: ({ total }) => `that's ${total} lots of papers... i only gave them the first 30... the rest is... a problem for later...`,
+  papers: ({ papers }) => `${papers} piles of papers... every row is in there... the cats get all of it...`,
   again: [
     'another file... okaaay... cats... again...',
     'more work... not for me though...',
   ],
-  health: ({ score }) => {
-    if (score > 80) return [`data health: ${score}... nice and tidy... i approve... lazily...`];
-    if (score < 40) return [`data health: ${score}...\nugh... it's a mess... the janitor cat has notes...`];
-    return [`data health: ${score}...\nnot bad... not great... very... average... like my naps...`];
-  },
+  health: ({ score, mood }) => ({
+    happy: `data health: ${score}... nice and tidy... i approve... lazily...`,
+    grumpy: `data health: ${score}...\nugh... it's a mess... the janitor cat has notes...`,
+    idle: `data health: ${score}...\nnot bad... not great... very... average... like my naps...`,
+  })[mood],
   allDone: 'everyone is done... click a cat or a results button to see what they found...',
   catError: ({ cat }) => `the ${cat} cat... had a little accident... the others are fine...`,
   wrongType: ({ name }) => [`${name}...? i only eat csv... tsv... and xlsx... sometimes...`],
@@ -124,13 +131,6 @@ export const SLOTH = {
 };
 
 export const CATS = {
-  start: {
-    detective: ['on the case, boss!', 'magnifier: ready. let me sniff this out.'],
-    artist: ['ooh, a blank canvas!', 'sharpening my pencils!'],
-    scribe: ['taking notes... purrfectly.', 'quill inked, ready to write.'],
-    coder: ['booting up my brain.', 'import pandas as pd. on it!'],
-    janitor: ['broom out, sleeves up!', 'time to tidy up this mess.'],
-  },
   done: {
     detective: ({ cards }) => `case closed! ${lower(cards[0]?.title ?? 'nothing suspicious')}.`,
     artist: ({ cards }) => `${cards.length} charts, pawsitively framed.`,
@@ -149,16 +149,39 @@ export const OFFICE = {
     start: ['papers... go...', 'okaaay... delegating...'],
     working: 'zzz...',
     health: ({ score }) => `health: ${score}/100`,
-    mood: ({ score }) => (score > 80 ? 'tidy... nice...' : score < 40 ? 'ugh... messy...' : 'meh... okay...'),
+    mood: { happy: 'tidy... nice...', grumpy: 'ugh... messy...', idle: 'meh... okay...' },
   },
   sign: 'NAP\nMORE',
-  capped: ({ total }) => `${total} lots of papers, the sloth only gave you the first 30`,
   waiting: 'waiting for papers...',
   ready: 'papers received',
   done: 'done!',
   error: 'confused...',
   catLabel: ({ name, role, state, percent }) => `${name}, ${role}. ${state}${percent != null ? `, ${percent}%` : ''}. Open results.`,
   states: { idle: 'idle', work: 'working', done: 'done', error: 'error' },
+};
+
+/** The upload dialog: columns, target, rows to leave out. */
+export const PICKER = {
+  title: name => `what should the cats read in ${name}?`,
+  columns: n => `columns (${n})`,
+  all: 'all',
+  none: 'none',
+  target: 'target (what you want to predict)',
+  noTarget: '(no target)',
+  rows: 'rows to leave out',
+  addRule: '+ exclude rows where...',
+  ruleLead: 'exclude rows where',
+  ruleColumn: 'Column',
+  ruleIs: 'is',
+  ruleValue: 'value (empty = blank cells)',
+  ruleRemove: 'Remove this rule',
+  showExcluded: 'show excluded rows (struck out)',
+  preview: (n, struck, done) => `${done ? 'all' : 'first'} ${n.toLocaleString('en-US')} rows${struck ? `, ${struck.toLocaleString('en-US')} struck out = left out` : ''}`,
+  previewFailed: 'could not load the preview... the rows will still be analysed',
+  more: 'show 100 more rows',
+  loading: 'loading...',
+  cancel: 'cancel',
+  start: 'start the cats',
 };
 
 /** The results drawer. */

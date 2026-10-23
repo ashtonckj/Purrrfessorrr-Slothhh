@@ -14,7 +14,6 @@ function cssVar(name) {
 }
 
 function theme() {
-  const fallback = document.documentElement.classList.contains('font-fallback');
   return {
     bg: cssVar('--surface') || '#fffaf0',
     ink: cssVar('--text') || '#2b1d14',
@@ -22,9 +21,9 @@ function theme() {
     grid: cssVar('--surface-2') || '#e3d3b0',
     outline: '#2b1d14',
     colors: SERIES.map(cssVar),
-    font: fallback ? '12px ui-monospace, Consolas, monospace' : '8px PressStart, monospace',
-    titleFont: fallback ? 'bold 13px ui-monospace, Consolas, monospace' : '9px PressStart, monospace',
-    charW: fallback ? 7.2 : 8,
+    font: '12px ui-monospace, Consolas, monospace',
+    titleFont: 'bold 13px ui-monospace, Consolas, monospace',
+    charW: 7.2,
   };
 }
 

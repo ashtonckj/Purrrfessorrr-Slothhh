@@ -1,7 +1,7 @@
 """Build the .zip and .ipynb exports from a job's cards.
 
 Engine-agnostic: works from the card shape, so the real engine gets exports for free.
-TODO(real engine): add rendered chart PNGs to the zip (the mock only has chart specs).
+TODO: add rendered chart PNGs to the zip (cards only carry chart specs).
 """
 
 from __future__ import annotations

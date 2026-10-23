@@ -33,16 +33,12 @@ def _as_bool(value: str) -> bool:
 
 @dataclass(frozen=True)
 class Settings:
-    mock_mode: bool
     host: str
     port: int
     open_browser: bool
     max_upload_mb: int
     upload_dir: Path
-    ollama_url: str
-    model_name: str
-    mock_speed: float
-    mock_error_rate: float
+    cat_speed: float
 
 
 def load_settings() -> Settings:
@@ -56,16 +52,12 @@ def load_settings() -> Settings:
         upload_dir = ROOT / upload_dir
 
     return Settings(
-        mock_mode=_as_bool(get("MOCK_MODE", "true")),
         host=get("HOST", "127.0.0.1"),
         port=int(get("PORT", "8765")),
         open_browser=_as_bool(get("OPEN_BROWSER", "true")),
         max_upload_mb=int(get("MAX_UPLOAD_MB", "200")),
         upload_dir=upload_dir,
-        ollama_url=get("OLLAMA_URL", "http://127.0.0.1:11434"),
-        model_name=get("MODEL_NAME", "gemma3:4b"),
-        mock_speed=max(0.05, float(get("MOCK_SPEED", "1.0"))),
-        mock_error_rate=min(1.0, max(0.0, float(get("MOCK_ERROR_RATE", "0.0")))),
+        cat_speed=max(0.05, float(get("CAT_SPEED", "1.0"))),
     )
 
 
