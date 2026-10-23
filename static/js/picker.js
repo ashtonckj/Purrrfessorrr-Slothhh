@@ -51,8 +51,9 @@ export function pickColumns(info) {
       el('thead', {}, el('tr', {}, keep.map(i => el('th', { scope: 'col', text: cols[i] })))),
       el('tbody', {}, view.rows.map((row, n) => el('tr', { class: view.flags[n] ? 'is-excluded' : '' },
         keep.map(i => el('td', { text: row[i] ?? '' })))))),
-      view.done ? null : el('button', { type: 'button', class: 'btn picker__more', disabled: view.busy,
-        onclick: () => showMore() }, view.busy ? PICKER.loading : PICKER.more));
+      // replaceChildren() would print a null as the text "null", so leave the button out entirely
+      ...(view.done ? [] : [el('button', { type: 'button', class: 'btn picker__more', disabled: view.busy,
+        onclick: () => showMore() }, view.busy ? PICKER.loading : PICKER.more)]));
     start.disabled = keep.length === 0;
   }
 
