@@ -72,6 +72,18 @@ class LocalEngineTest(unittest.TestCase):
             analyse(info, Selection(exclude=[(store, v) for v in ("Campus", "Riverside", "Old Town", "Harbour", "Station",
                                                                      "CAMPUS", "RIVERSIDE", "OLD TOWN", "HARBOUR", "STATION")]))
 
+    def test_none_is_a_value_not_a_missing_cell(self):
+        path = self.dir / "holiday.csv"
+        path.write_text("holiday,temp\nNone,1\nNone,2\nLabor Day,3\nNone,\nNA,5\n")
+        facts = analyse(_file(path))
+        holiday, temp = facts.cols
+        self.assertEqual((holiday.kind, holiday.missing, holiday.distinct), ("text", 1, 2))   # only "NA" is missing
+        self.assertEqual(holiday.top[0], ("None", 3))
+        self.assertEqual(temp.missing, 1)
+        code = BUILDERS["coder"](facts)[0]["code"]["python"]
+        self.assertIn("keep_default_na=False", code)       # pandas would otherwise turn "None" into NaN
+        self.assertNotIn('"None"', code.split("na_values=")[1].split("]")[0])
+
     def test_exclude_treats_zero_and_zero_point_zero_alike(self):
         path = self.dir / "z.csv"
         path.write_text("n,label\n0,a\n0.0,b\n0.00,c\n1,d\n,e\n")

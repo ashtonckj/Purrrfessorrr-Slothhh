@@ -23,8 +23,11 @@ from ..jobs import Job
 from . import lines
 from .base import Engine
 
-# What pandas.read_csv treats as missing by default (compared lower-cased).
-NA = {"", "na", "n/a", "nan", "null", "none", "#n/a", "<na>"}
+# Cells that count as missing (compared lower-cased). "None" is deliberately not here:
+# it is often a real answer ("no holiday"), so it stays an ordinary value.
+NA = {"", "na", "n/a", "nan", "null", "#n/a", "<na>"}
+# The same list for pandas; keep_default_na=False stops it adding "None" back.
+NA_VALUES = ["", "NA", "N/A", "NaN", "nan", "null", "NULL", "n/a", "#N/A", "<NA>"]
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 OTHER_DATE = re.compile(r"\d{1,2}[/.]\d{1,2}[/.]\d{2,4}$")
 CORR_SAMPLE = 5000   # rows used to rank column pairs by correlation
@@ -432,8 +435,9 @@ def _best_pair(measures: list[Col]):
 def _loader(f: Facts) -> str:
     """`df = ...` plus the user's row filter and column choice."""
     name = f.filename.lower()
-    read = (f"pd.read_excel({q(f.filename)})" if name.endswith(".xlsx")
-            else f"pd.read_csv({q(f.filename)}{', sep=chr(9)' if name.endswith('.tsv') else ''})")
+    na = f"keep_default_na=False, na_values={NA_VALUES!r}"
+    read = (f"pd.read_excel({q(f.filename)}, {na})" if name.endswith(".xlsx")
+            else f"pd.read_csv({q(f.filename)}{', sep=chr(9)' if name.endswith('.tsv') else ''}, {na})")
     code = f"df = {read}"
     for col, value in f.excluded:
         num = _number(value)
