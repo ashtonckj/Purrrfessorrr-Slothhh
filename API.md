@@ -1,8 +1,8 @@
 # API
 
 Everything is served from `http://127.0.0.1:8765` (port set in `config.env`).
-The frontend only talks to these routes; the mock and the future real engine
-(`backend/engines/`) both have to honour this contract.
+The frontend only talks to these routes; any engine in `backend/engines/`
+has to honour this contract.
 
 Interactive docs: `/api/docs`. Developer test page: `/dev.html`.
 
@@ -12,14 +12,14 @@ Cat ids used everywhere: `detective`, `artist`, `scribe`, `coder`, `janitor`.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/config` | | `{ mock_mode, engine, model_name, max_upload_mb, cats: {id: role} }` |
+| GET | `/api/config` | | `{ engine, max_upload_mb, cats: {id: role} }` |
 | POST | `/api/upload` | multipart, field `file` (`.csv`, `.tsv`, `.xlsx`) | `{ file_id, filename, rows, cols, size_bytes, columns: [...] }` |
 | POST | `/api/analyze` | `{ "file_id": "..." }` | `{ job_id }` (work starts in the background) |
 | GET | `/api/jobs/{job_id}/events` | | Server-Sent Events stream, see below |
 | GET | `/api/results/{job_id}/{cat}` | | `{ cat, ready, cards: [Card] }` |
 | GET | `/api/export/{job_id}/zip` | | `.zip` download (results.json, notebook, per card: README.md, data.csv, chart.json, code.py) |
 | GET | `/api/export/{job_id}/notebook` | | `.ipynb` download |
-| POST | `/api/chat` | `{ "job_id": "..." or null, "message": "..." }` | `{ reply }` |
+| POST | `/api/chat` | `{ "job_id": "..." or null, "message": "..." }` | `{ reply, from }` (`from` is `sloth` or the cat id that answered) |
 | GET | `/api/sample.csv` | | sample CSV (12,000-ish rows of cafe sales, with mess baked in) |
 
 Errors use FastAPI's default shape: HTTP status + `{ "detail": "message" }`.
@@ -42,8 +42,8 @@ late replays from the start. After `done` the server closes the stream and
 answers further reconnects with `204` (which makes `EventSource` stop).
 Keep-alive comments are sent every 15 s.
 
-In mock mode there is a 2.5 s pause between `delegated` and the first real
-progress, so the UI can fly papers to the desks.
+There is a 2.5 s pause (times `CAT_SPEED`) between `delegated` and the first
+progress, so the UI can fly papers to the desks; the file is read meanwhile.
 
 ## Card
 
@@ -69,10 +69,10 @@ frontend draws on a canvas (so "Download chart (PNG)" works offline);
 `points` is used by `scatter`, `labels`/`values` by the rest. `table` feeds
 "Download data (CSV)". `code.r = null` means R is "soon".
 
-## Swapping in the real engine
+## Swapping in another engine
 
-1. Write `backend/engines/real.py` with a class extending `Engine`
-   (`backend/engines/base.py`): `async run(job)` emits the events above,
-   `async chat(job, message)` returns a string.
-2. Return it from `get_engine()` in `backend/engines/__init__.py` when `MOCK_MODE=false`.
+1. Write a class extending `Engine` (`backend/engines/base.py`):
+   `async run(job)` emits the events above, `async chat(job, message)` returns
+   `(who, text)`.
+2. Return it from `get_engine()` in `backend/engines/__init__.py`.
 3. Exports, uploads, the event stream and the frontend need no changes.

@@ -7,9 +7,10 @@ cat reports back with findings, charts, explanations, code and cleaning steps.
 > The sloth typed "Purrfessor Sloth" and left his finger on the keys too long.
 
 Everything runs on your machine; the app makes no external network requests.
-**Right now it runs on mock data** (`MOCK_MODE=true`): the cats return plausible
-results built from your real column names. A real pandas + Ollama/Gemma engine
-can be plugged in later without touching the frontend (see [API.md](API.md)).
+The cats read **every row** of your file and report real statistics (missing
+values, IQR outliers, duplicates, type problems, distributions, correlations),
+using only the Python standard library. Another engine (e.g. pandas +
+Ollama/Gemma) can be plugged in without touching the frontend (see [API.md](API.md)).
 
 | Cat | Job |
 |---|---|
@@ -70,7 +71,9 @@ python3 -m venv .venv
 4. When everyone is done the sloth shows a **data health score** (0-100):
    happy above 80, grumpy below 40. The drawer can then export everything as a
    `.zip` or a Jupyter notebook.
-5. Chat with the sloth any time. In mock mode it gives canned (lazy) answers.
+5. Chat any time. Ask about outliers, duplicates, missing values, charts,
+   correlations, code, or a column by name ("tell me about customer age"): the
+   cat whose job it is answers from the results.
 
 Top-right buttons: sound (off by default), day/night theme, settings.
 
@@ -91,20 +94,16 @@ Edit **`config.env`** (environment variables with the same name override it):
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `MOCK_MODE` | `true` | `true` = scripted cats. `false` = real engine (not built yet). |
 | `HOST`, `PORT` | `127.0.0.1`, `8765` | Where the server listens (localhost only). |
 | `OPEN_BROWSER` | `true` | Open a browser tab on start. |
 | `MAX_UPLOAD_MB` | `200` | Upload size limit. |
 | `UPLOAD_DIR` | `data/uploads` | Where uploads are stored (git-ignored). |
-| `OLLAMA_URL`, `MODEL_NAME` | `http://127.0.0.1:11434`, `gemma3:4b` | For the real engine; the model name shows in Settings. |
-| `MOCK_SPEED` | `1.0` | Mock timing multiplier (`0.3` = fast demo). |
-| `MOCK_ERROR_RATE` | `0.0` | Chance (0-1) that a mock cat fails, to see error states. |
+| `CAT_SPEED` | `1.0` | Cat animation multiplier (`0.3` = fast demo). The numbers are real either way. |
 
 ## Customising
 
-- **Text and jokes:** all UI copy is in [`static/copy.js`](static/copy.js). The mock
-  backend's progress lines and chat replies are in
-  [`backend/engines/mock_copy.py`](backend/engines/mock_copy.py).
+- **Text and jokes:** all UI copy is in [`static/copy.js`](static/copy.js). The cats'
+  progress lines and chat voices are in [`backend/engines/lines.py`](backend/engines/lines.py).
 - **Art:** replace any PNG and keep `static/assets/manifest.json` in sync. See
   [ASSETS.md](ASSETS.md). The sprite gallery at **/sprites.html** previews everything.
 - **Sounds:** off by default. Drop files in `static/assets/audio/` and list them in
@@ -122,7 +121,7 @@ Edit **`config.env`** (environment variables with the same name override it):
 
 ```
 app.py                  start here: serves the API and the static frontend
-config.env              settings (MOCK_MODE, port, ...)
+config.env              settings (port, upload limit, ...)
 backend/
   api.py                HTTP routes (the frontend contract, see API.md)
   jobs.py               job registry + replayable event log for SSE
@@ -130,9 +129,9 @@ backend/
   exporters.py          .zip and .ipynb exports
   sample_data.py        the sample CSV
   engines/
-    base.py             Engine interface: implement this for the real backend
-    mock.py             mock cats (parallel, random durations)
-    mock_copy.py        mock text
+    base.py             Engine interface
+    local.py            the cats: real statistics over every row
+    lines.py            the cats' progress lines and chat voices
 static/
   index.html, copy.js
   css/                  palette, base app, chat, office, drawer, sprites
@@ -152,6 +151,7 @@ static/
   assets/               sprites, avatars, ui icons, fonts, audio, manifest.json
 tools/
   generate_placeholders.py   draws the placeholder pixel art + manifest
+tests/                  python -m unittest discover tests
 ```
 
 ## Troubleshooting

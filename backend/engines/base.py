@@ -1,7 +1,8 @@
 """The engine interface. The API layer only talks to this.
 
-To add the real pandas + Ollama backend, write `engines/real.py` with a class
-implementing these two methods, and return it from `engines.get_engine()`.
+`engines/local.py` is the built-in one (real statistics, stdlib only). To add
+another (e.g. pandas + Ollama), implement these two methods in a new module
+and return it from `engines.get_engine()`.
 The frontend does not change.
 
 Event contract (emit through `job.emit(type, **data)`), see API.md:
@@ -40,5 +41,5 @@ class Engine(ABC):
         """Do all five cats' work for `job`, emitting events. Must end with `done`."""
 
     @abstractmethod
-    async def chat(self, job: Job | None, message: str) -> str:
-        """Answer a free-text message as Professor Slothhh."""
+    async def chat(self, job: Job | None, message: str) -> tuple[str, str]:
+        """Answer a free-text message. Returns (who, text): "sloth" or the cat id best placed to answer."""

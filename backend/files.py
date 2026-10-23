@@ -1,7 +1,7 @@
 """Uploaded file storage and a cheap shape inspection (rows, cols, header).
 
-Inspection is deliberately light (no pandas) so mock mode stays dependency-free.
-The real engine re-reads the file however it likes.
+Inspection is deliberately light (no pandas) so the app stays dependency-free.
+The engine re-reads the file however it likes.
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ def inspect(info: FileInfo) -> None:
 def iter_rows(info: FileInfo) -> Iterator[list]:
     """Yield the header, then the data rows, skipping blank lines.
 
-    Shared by the upload check and the mock engine so they always agree.
+    Shared by the upload check and the engine so they always agree.
     """
     if info.path.suffix.lower() == ".xlsx":
         yield from _iter_xlsx(info)

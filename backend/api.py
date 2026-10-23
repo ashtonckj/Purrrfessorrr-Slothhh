@@ -46,9 +46,7 @@ def _safe_stem(filename: str) -> str:
 async def get_config() -> dict:
     """Small bits of server state the settings panel shows."""
     return {
-        "mock_mode": settings.mock_mode,
         "engine": engine.name,
-        "model_name": settings.model_name,
         "max_upload_mb": settings.max_upload_mb,
         "cats": CATS,
     }
@@ -130,7 +128,8 @@ async def export_notebook(job_id: str) -> Response:
 @router.post("/chat")
 async def chat(body: ChatIn) -> dict:
     job = jobs.get(body.job_id) if body.job_id else None
-    return {"reply": await engine.chat(job, body.message)}
+    who, reply = await engine.chat(job, body.message)
+    return {"reply": reply, "from": who}
 
 
 @router.get("/sample.csv")

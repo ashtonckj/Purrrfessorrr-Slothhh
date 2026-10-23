@@ -75,8 +75,7 @@ function buildSettings(config) {
     el('div', { class: 'settings__fill px-fill' },
       el('h2', { id: 'settings-title', text: UI.settingsTitle }),
       el('dl', { style: { margin: 0, display: 'grid', gap: '12px' } },
-        row(UI.model, el('code', { text: config?.model_name ?? '?' })),
-        row(UI.mode, el('span', { class: 'tag', text: config?.mock_mode ? UI.modeMock : UI.modeReal })),
+        row(UI.engine, el('span', { class: 'tag', text: UI.engines[config?.engine] ?? config?.engine ?? '?' })),
         row(UI.sample, el('a', { href: SAMPLE_URL, download: 'cafe_sales_sample.csv' }, icon('download', { scale: 1 }), ' ', UI.sampleLink))),
       el('div', { class: 'settings__foot' }, close))));
   // click on the backdrop closes

@@ -1,7 +1,7 @@
 /**
  * The office scene: Professor Slothhh's desk, five cat desks, progress bars
  * and flying papers. Driven entirely by bus events (see bus.js), so it does
- * not care whether the data comes from the mock or the real engine.
+ * not care which engine produced the data.
  */
 import { CAT_IDS, NAMES, OFFICE, ROLES } from '../copy.js';
 import { emit, on } from './bus.js';

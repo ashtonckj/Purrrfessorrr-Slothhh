@@ -1,7 +1,7 @@
-"""Text the MOCK backend sends (progress lines, canned chat replies).
+"""Text the engine sends (progress lines, chat voices).
 
-UI copy lives in static/copy.js. This file only matters while MOCK_MODE=true;
-the real engine will generate these with Gemma instead.
+UI copy lives in static/copy.js; these lines travel through the event stream
+and the chat endpoint.
 """
 
 PROGRESS_LINES: dict[str, list[str]] = {
@@ -51,26 +51,29 @@ DONE_LINES: dict[str, str] = {
     "janitor": "{missing} missing values swept up",
 }
 
-ERROR_LINES: list[str] = [
-    "tripped over a ball of yarn halfway through",
-    "the file sat on my keyboard. could not finish",
-    "got distracted by a red dot. sorry",
-]
+# How each cat opens a chat answer.
+CHAT_VOICE: dict[str, str] = {
+    "detective": "*adjusts hat* my case notes say:",
+    "artist": "*waves brush* from my sketchbook:",
+    "scribe": "*pushes up glasses* for the record:",
+    "coder": "*cracks knuckles* in code terms:",
+    "janitor": "*leans on broom* from the cleaning log:",
+}
 
-CHAT_REPLIES: list[str] = [
-    "mmh... good question... ask the cats... they love work...",
-    "i read your message... most of it... the first word...",
-    "okaaay... noted... in my head... which is a nap...",
-    "that sounds like a job for a cat... not a sloth...",
-    "hmm... let me think about it... tomorrow...",
-    "yes... probably... maybe... what was the question...",
-]
+CHAT_BUSY: dict[str, str] = {
+    cat: "still on it... ask me again when my progress bar is full!" for cat in DONE_LINES
+}
+CHAT_FAILED = "i tripped on this file, so i have no notes... sorry."
 
 CHAT_NO_JOB: list[str] = [
     "hi... drop a csv in the chat first... then i delegate... it's my favourite part...",
     "no file yet... no work yet... perfect... but drop a csv if you must...",
 ]
-
+CHAT_NOT_READY = "the cats are still reading the file... ask me again in a moment..."
+CHAT_HELP = (
+    "mmh... i only delegate... ask the cats about outliers, duplicates, missing values, "
+    "charts, correlations, code or a model... or name a column, like '{example}'..."
+)
 CHAT_HEALTH: str = "the health score is {score}... {mood}..."
 HEALTH_MOOD = {
     "happy": "nice and tidy... i approve, lazily",

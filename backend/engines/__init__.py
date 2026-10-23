@@ -1,4 +1,4 @@
-"""Engine selection: mock today, real (pandas + Ollama) later."""
+"""Engine selection. Swap in another `Engine` here (e.g. pandas + Ollama) later."""
 
 from __future__ import annotations
 
@@ -7,11 +7,6 @@ from .base import Engine
 
 
 def get_engine() -> Engine:
-    if settings.mock_mode:
-        from .mock import MockEngine
+    from .local import LocalEngine
 
-        return MockEngine(speed=settings.mock_speed, error_rate=settings.mock_error_rate)
-    raise RuntimeError(
-        "MOCK_MODE=false but the real engine is not built yet. "
-        "Set MOCK_MODE=true in config.env."
-    )
+    return LocalEngine(speed=settings.cat_speed)

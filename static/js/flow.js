@@ -54,10 +54,10 @@ export function greet() {
 
 function handleText(text) {
   chat.addMessage({ from: 'user', text });
-  const reply = api.chat(state.jobId, text).then(r => r.reply, () => say(SLOTH.chatFailed));
+  const reply = api.chat(state.jobId, text).catch(() => ({ from: 'sloth', reply: say(SLOTH.chatFailed) }));
   queue(async () => {
-    const [text_] = await Promise.all([reply, chat.showTyping('sloth', 1500)]);
-    chat.addMessage({ from: 'sloth', text: text_ });
+    const [{ from, reply: answer }] = await Promise.all([reply, chat.showTyping('sloth', 1500)]);
+    chat.addMessage({ from, text: answer, icon: CAT_ICONS[from] });
   });
 }
 
