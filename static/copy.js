@@ -204,6 +204,11 @@ export const DRAWER = {
   sortBy: column => `Sort by ${column}`,
   moreRows: n => `show ${n} more rows`,
   severity: { ok: 'ok', warn: 'check', bad: 'fix me' },
+  severityHelp: {
+    ok: 'ok: nothing to worry about here.',
+    warn: 'check: worth a look before you rely on this data.',
+    bad: 'fix me: likely to give wrong results unless you fix it first.',
+  },
   empty: {
     noJob: 'no papers yet... drop a csv in the chat and this cat gets to work.',
     working: 'still working on it... pawsitively almost done.',

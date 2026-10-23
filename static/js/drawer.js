@@ -154,7 +154,8 @@ function renderCard(cat, card, openByDefault) {
 
   const summary = el('summary', { class: 'card__head' },
     el('span', { class: 'card__title', text: card.title }),
-    card.severity ? el('span', { class: `tag tag--${card.severity}`, text: DRAWER.severity[card.severity] ?? card.severity }) : null,
+    card.severity ? el('span', { class: `tag tag--${card.severity}`, text: DRAWER.severity[card.severity] ?? card.severity,
+      title: DRAWER.severityHelp[card.severity] }) : null,
     el('span', { class: 'card__chevron' }, icon('chevron', { scale: 1 })));
 
   const content = el('div', { class: 'card__body' });

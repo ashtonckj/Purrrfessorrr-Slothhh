@@ -105,6 +105,7 @@
 .card[open] > .card__head .card__chevron { transform: rotate(180deg); }
 :root[data-theme="night"] .card__chevron .sprite { filter: invert(1); }
 
+.card__head .tag { cursor: help; }
 .tag--ok { background: var(--mint); }
 .tag--warn { background: var(--yellow); }
 .tag--bad { background: var(--red); color: var(--white); }
