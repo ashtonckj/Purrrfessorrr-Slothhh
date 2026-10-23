@@ -4,19 +4,14 @@
  * "pixel corners" via clip-path), chunky borders, hard shadows.
  */
 
-@font-face {
-  font-family: "PressStart";
-  src: url("../assets/fonts/PressStart2P-Regular.ttf") format("truetype");
-  font-display: swap;
-}
-
 :root {
-  --font-pixel: "PressStart", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  --fs-xs: 8px;
-  --fs-s: 9px;
-  --fs-m: 11px;
-  --fs-l: 14px;
-  --lh: 1.75;
+  /* the system monospace font (Cascadia Mono / Consolas on Windows, SF Mono on macOS) */
+  --font-ui: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --fs-xs: 11px;
+  --fs-s: 12px;
+  --fs-m: 14px;
+  --fs-l: 18px;
+  --lh: 1.45;
 
   --b: 3px;            /* border thickness */
   --sh: 4px;           /* hard shadow offset */
@@ -32,15 +27,6 @@
   --bubble-out: var(--mint);
   --bubble-cat: var(--white);
   --drop: var(--pink);
-}
-
-/* Without the pixel font, monospace needs bigger sizes to stay readable. */
-:root.font-fallback {
-  --fs-xs: 11px;
-  --fs-s: 12px;
-  --fs-m: 14px;
-  --fs-l: 18px;
-  --lh: 1.45;
 }
 
 /* Night theme: same structure, dark roles. */
@@ -69,9 +55,7 @@ body {
   min-width: 1100px;
   background: var(--bg);
   color: var(--text);
-  font: var(--fs-m) / var(--lh) var(--font-pixel);
-  -webkit-font-smoothing: none;
-  font-smooth: never;
+  font: var(--fs-m) / var(--lh) var(--font-ui);
 }
 
 img { image-rendering: pixelated; }

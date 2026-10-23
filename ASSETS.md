@@ -107,7 +107,6 @@ The same colours are CSS variables in `static/css/palette.css`.
 
 ## Other folders
 
-- `static/assets/fonts/`: the pixel font. Expected file: `PressStart2P-Regular.ttf` (see README for the download link).
 - `static/assets/audio/`: optional sound effects and music. List files in `sounds.json`:
 
   | name | when it plays |

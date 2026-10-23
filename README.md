@@ -91,16 +91,8 @@ python3 -m venv .venv
 
 Top-right buttons: sound (off by default), day/night theme, settings.
 
-## Pixel font (optional, recommended)
-
-The UI is designed for **Press Start 2P** (SIL Open Font License). It isn't
-bundled yet; without it the app falls back to a monospace font at larger sizes.
-
-1. Download `PressStart2P-Regular.ttf` from
-   <https://fonts.google.com/specimen/Press+Start+2P> (or from the
-   [google/fonts repo](https://github.com/google/fonts/tree/main/ofl/pressstart2p)).
-2. Put it at `static/assets/fonts/PressStart2P-Regular.ttf` (exact name).
-3. Reload the page.
+Text uses your system's monospace font (`ui-monospace`: Cascadia Mono or
+Consolas on Windows), so there is nothing to download.
 
 ## Configuration
 

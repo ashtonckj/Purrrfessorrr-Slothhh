@@ -32,7 +32,7 @@
 }
 
 .sprite__label {
-  font: 8px/1.1 var(--font-pixel, monospace);
+  font: 8px/1.1 var(--font-ui, monospace);
   text-align: center;
   padding: 2px;
   word-break: break-word;
