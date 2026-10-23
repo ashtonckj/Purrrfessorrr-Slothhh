@@ -155,8 +155,10 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* Icons are drawn in dark ink, so night buttons stay light (like paper). */
 :root[data-theme="night"] .btn { background: var(--cream-shadow); color: var(--ink); }
-:root[data-theme="night"] .btn:hover { background: var(--cream); }
+/* Hover dims instead of brightening, and the primary rules come last so green stays green. */
+:root[data-theme="night"] .btn:hover { background: var(--tan); }
 :root[data-theme="night"] .btn--primary { background: var(--leaf); color: var(--white); }
+:root[data-theme="night"] .btn--primary:hover { background: var(--forest); }
 
 .btn:active {
   transform: translateY(var(--b));

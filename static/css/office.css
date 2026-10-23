@@ -301,3 +301,8 @@
   0% { background: var(--yellow); color: var(--ink); }
   50% { background: var(--surface); }
 }
+:root[data-theme="night"] .station .btn.flash { animation-name: btn-flash-night; }
+@keyframes btn-flash-night {
+  0% { background: var(--tan); color: var(--ink); }
+  50% { background: var(--cream-shadow); }
+}

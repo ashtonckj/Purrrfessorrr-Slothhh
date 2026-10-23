@@ -57,7 +57,7 @@
 }
 .drawer__tab[aria-pressed="true"] { background: var(--yellow); box-shadow: 0 0 0 2px var(--border), 3px 3px 0 2px var(--shadow); }
 :root[data-theme="night"] .drawer__tab { background: var(--cream-shadow); }
-:root[data-theme="night"] .drawer__tab[aria-pressed="true"] { background: var(--yellow); }
+:root[data-theme="night"] .drawer__tab[aria-pressed="true"] { background: var(--tan); }
 
 /* ----------------------------------------------------------------- body */
 
