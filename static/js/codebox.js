@@ -7,9 +7,9 @@ import { emit } from './bus.js';
 import { highlight } from './syntax.js';
 import { el, icon } from './ui.js';
 
-/** Code block with a Python / R toggle. R without code shows a disabled "soon" tab. */
+/** Code block with a Python / R toggle (`code.lang` picks the tab it opens on). A language without code is disabled. */
 export function renderCode(code, openByDefault) {
-  let lang = code.python ? 'python' : 'r';
+  let lang = code[code.lang] ? code.lang : code.python ? 'python' : 'r';
   const pre = el('pre', { class: 'code__pre', tabindex: '0' });
   const codeEl = el('code', {});
   pre.append(codeEl);

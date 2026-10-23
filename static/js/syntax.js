@@ -13,7 +13,10 @@ const KEYWORDS = {
 const BUILTINS = {
   python: new Set(('print len range sum min max abs round sorted list dict set tuple str int float bool open ' +
     'enumerate zip map filter isinstance type super').split(' ')),
-  r: new Set('c print length sum mean median summary head tail nrow ncol is.na read.csv data.frame'.split(' ')),
+  r: new Set(('c print cat str length sum mean median summary head tail nrow ncol is.na read.csv read.delim data.frame ' +
+    'sapply tapply split table sort unique duplicated quantile cor lm predict set.seed sample factor paste0 ' +
+    'as.numeric as.character as.integer as.Date gsub trimws tolower substr format ifelse names setdiff ' +
+    'plot hist barplot axis seq_along write.csv suppressWarnings which.max colSums reformulate make.names').split(' ')),
 };
 
 const CONSTANTS = {

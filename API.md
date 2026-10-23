@@ -61,14 +61,14 @@ progress, so the UI can fly papers to the desks; the file is read meanwhile.
     "points": [[x, y], ...]
   },
   "table": { "columns": ["..."], "rows": [["..."]] },
-  "code": { "python": "...", "r": null }
+  "code": { "python": "...", "r": "..." }
 }
 ```
 
 Only `id`, `title` and `description` are required. `chart` is a spec the
 frontend draws on a canvas (so "Download chart (PNG)" works offline);
 `points` is used by `scatter`, `labels`/`values` by the rest. `table` feeds
-"Download data (CSV)". `code.r = null` means R is "soon".
+"Download data (CSV)". Every snippet has a Python and an R version (`r` may be null where there is nothing to say).
 
 ## Swapping in another engine
 

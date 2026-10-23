@@ -22,7 +22,7 @@ Card shape (every key except id/title/description is optional):
                 "labels": [...], "values": [...],      # bar / hbar / line / hist
                 "points": [[x, y], ...]},              # scatter
       "table": {"columns": [...], "rows": [[...], ...]},   # "Download data (CSV)"
-      "code":  {"python": "...", "r": null}                # "Copy code"
+      "code":  {"python": "...", "r": "..."}               # "Copy code"; r may be null
     }
 """
 

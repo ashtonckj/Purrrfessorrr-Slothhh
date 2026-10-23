@@ -32,6 +32,7 @@ def build_zip(job: Job) -> bytes:
             "results": job.results,
         }, indent=2))
         zf.writestr("analysis.ipynb", json.dumps(build_notebook(job), indent=1))
+        zf.writestr("analysis.R", build_r_script(job))
         for cat in CAT_IDS:
             for card in job.results.get(cat, []):
                 base = f"{cat}/{card['id']}"
@@ -40,10 +41,23 @@ def build_zip(job: Job) -> bytes:
                     zf.writestr(f"{base}/data.csv", _table_csv(card["table"]))
                 if card.get("chart"):
                     zf.writestr(f"{base}/chart.json", json.dumps(card["chart"], indent=2))
-                code = (card.get("code") or {}).get("python")
-                if code:
-                    zf.writestr(f"{base}/code.py", code + "\n")
+                for lang, ext in (("python", "py"), ("r", "R")):
+                    code = (card.get("code") or {}).get(lang)
+                    if code:
+                        zf.writestr(f"{base}/code.{ext}", code + "\n")
     return buf.getvalue()
+
+
+def build_r_script(job: Job) -> str:
+    """Every R snippet in one script, in the same order as the notebook."""
+    parts = [f"# R version of the cats' snippets for {job.file.filename}.\n"
+             "# Run it from the folder that holds the data file, top to bottom.\n"]
+    for cat in CAT_IDS:
+        for card in job.results.get(cat, []):
+            code = (card.get("code") or {}).get("r")
+            if code:
+                parts.append(f"# --- {cat}: {card['title']}\n{code}\n")
+    return "\n".join(parts)
 
 
 def _md(text: str) -> dict:

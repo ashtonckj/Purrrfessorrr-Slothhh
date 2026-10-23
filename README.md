@@ -17,7 +17,7 @@ Ollama/Gemma) can be plugged in without touching the frontend (see [API.md](API.
 | Detective Cat | data quality: outliers, duplicates, type problems |
 | Artist Cat | chart selection and rendering |
 | Scribe Cat | plain-English explanations and documentation |
-| Coder Cat | Python code snippets |
+| Coder Cat | Python and R code snippets |
 | Janitor Cat | preprocessing and cleaning (missing values, encoding) |
 
 ## Install and run
@@ -138,6 +138,7 @@ backend/
   engines/
     base.py             Engine interface
     local.py            the cats: real statistics over every row, and the chat routing
+    rcode.py            the R versions of the cats' code snippets
     talk.py             chat helpers: small talk, code questions, finding a card
     lines.py            the cats' progress lines and chat voices
 static/

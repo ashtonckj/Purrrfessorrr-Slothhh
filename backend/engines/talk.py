@@ -95,7 +95,10 @@ def find_card(results: Results, text: str, only: str | None = None, need_code: b
 # Whole words only: "import" must not match "important", nor "code" the column "zip_code".
 CODE = re.compile(r"\b(code|python|snippets?|script|execute|run (it|this|that|them|these)|seed|random_state|random (seed|state)|randomness|reproducib\w*|"
                   r"librar(y|ies)|imports?|install|pip|pandas|sklearn|scikit|matplotlib|notebook|ipynb|model|"
-                  r"baseline|regression|classif\w*|predict\w*|train\w*|test.?size|function)\b")
+                  r"baseline|regression|classif\w*|predict\w*|train\w*|test.?size|function|rstudio|rscript|tidyverse|"
+                  r"ggplot2?|in r|r (code|script|version|snippets?))\b")
+WANTS_R = re.compile(r"\br\b(?!\^)|rstudio|rscript|tidyverse|ggplot")        # "r^2" is not the language
+EXISTS = re.compile(r"\b(is there|are there|do you have|any|support\w*|available|also)\b")
 SEED = re.compile(r"seed|random|reproducib|same (results?|split)")
 LIBS = re.compile(r"librar|import|package|install|depend|pip|pandas|sklearn|scikit|matplotlib")
 SHOW = re.compile(r"\b(show|give|print|paste|see|display|write|send)\b")
@@ -109,40 +112,59 @@ MAX_CODE_LINES = 30
 
 
 def code_answer(results: Results, text: str) -> tuple[str, str, list[str], dict | None]:
-    """Answer a question about the generated Python from the cards' own code: (cat, text, choices, code).
+    """Answer a question about the generated code from the cards' own code: (cat, text, choices, code).
 
-    `code` is a {"python", "r"} pair shown in a code box; short bits of code go inline in `backticks`.
+    Answers are about the Python snippets, or the R ones when the question says R. `code` is a
+    {"python", "r", "lang"} set shown in a code box; short bits of code go inline in `backticks`.
     Follow-up suggestions are only offered when the question was too vague to answer.
     """
     snippets = [(cat, c) for cat in CAT_IDS for c in results.get(cat, []) if (c.get("code") or {}).get("python")]
     if not snippets:
         return "coder", "nothing to run yet: no snippets were written for this file.", [], None
+    r = bool(WANTS_R.search(text))
     code = "\n".join(c["code"]["python"] for _, c in snippets)
+    r_code = "\n".join(c["code"].get("r") or "" for _, c in snippets)
     baseline = next((c for _, c in snippets if c["id"] == "coder-baseline"), None)
-    seed = (re.findall(r"random_state=(\d+)", code) or [None])[0]
+    seed = (re.findall(r"set\.seed\((\d+)\)" if r else r"random_state=(\d+)", r_code if r else code) or [None])[0]
+    show = lambda card: {**card["code"], "lang": "r" if r and card["code"].get("r") else "python"}
 
     if SEED.search(text):
         if seed:
-            return "coder", (f"the only random step is the train/test split in the baseline model: `random_state={seed}`, "
+            how = f"`set.seed({seed})` before" if r else "`random_state=" + seed + "` in"
+            return "coder", (f"the only random step is the train/test split in the baseline model: {how} the split, "
                              "so it splits the same way every run. nothing else is random."), [], None
         return "coder", ("none of the snippets use randomness, so there is no seed to set. the baseline model only "
                          "appears when the data has a number column to predict."), [], None
     if LIBS.search(text):
+        if r:
+            return "coder", ("the R snippets use base R only, so there is nothing to install. the exceptions: `readxl` "
+                             "for .xlsx files, and `nnet` (it ships with R) when the model has to pick between several "
+                             "text classes."), [], None
         found = list(dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.M)))
         pip = [PIP_NAMES.get(m, m) for m in found] + (["openpyxl"] if "read_excel" in code else [])
         return "coder", f"the snippets import {', '.join(found)}. install them with `pip install {' '.join(pip)}`", [], None
-    if re.search(r"\br\b|rstudio|tidyverse|ggplot", text):
-        return "coder", "R is marked 'soon' in the results: only Python snippets for now.", [], None
+    if r and EXISTS.search(text) and not SHOW.search(text):      # "is there R code?"
+        _, card = next(((cat, c) for cat, c in snippets if c["id"] == "coder-load"), snippets[0])
+        return "coder", ("yes: every snippet has an R version next to the Python one (the R tab in the code box). "
+                         f"it is base R, so there is nothing to install. here is {card['title'].lower()}:"), [], show(card)
     if SHOW.search(text):
         cat, card = find_card(results, text, need_code=True) or next(
             ((cat, c) for cat, c in snippets if c["id"] == "coder-load"), snippets[0])
-        return cat, f"{card['title']}:", [], card["code"]
+        return cat, f"{card['title']}:", [], show(card)
     if SPLIT.search(text) or MODEL.search(text):
         if baseline is None:
             return "coder", ("there is no model snippet: the chosen columns have no number column to predict. "
                              "pick a target (or keep a number column) and start again."), [], None
         model = (re.search(r"make_pipeline\(prep, (\w+)", code) or [None, "a model"])[1]
         size = (re.search(r"test_size=([\d.]+)", code) or [None, "0.2"])[1]
+        if r:
+            fit = "`nnet::multinom`" if "multinom" in r_code else "`lm`"
+            if SPLIT.search(text) and not re.search(r"model|predict|baseline", text):
+                return "coder", (f"it holds out {float(size):.0%} of the rows for testing and trains on the rest, "
+                                 f"after `set.seed({seed})`."), [], None
+            return "coder", (f"{baseline['description']} it fills gaps (median for numbers, most common value for text), "
+                             f"drops columns that never change, splits {1 - float(size):.0%}/{float(size):.0%} and fits "
+                             f"{fit}."), [], None
         if SPLIT.search(text) and not re.search(r"model|predict|baseline", text):
             return "coder", (f"it holds out {float(size):.0%} of the rows for testing (`test_size={size}`) and trains on "
                              f"the rest, with `random_state={seed}`."), [], None
@@ -151,8 +173,14 @@ def code_answer(results: Results, text: str) -> tuple[str, str, list[str], dict 
                          f"`{model}`."), [], None
     if NOTEBOOK.search(text):
         return "coder", ("open any cat's results and use 'Export notebook (.ipynb)' or 'Download everything (.zip)' "
-                         "at the bottom: every snippet is in the notebook, in order."), [], None
+                         "at the bottom: every snippet is in the notebook, in order. the zip also has `analysis.R`, "
+                         "all the R snippets in one script."), [], None
     if RUN.search(text):
+        if r:
+            read = (re.search(r"df <- ((?:read\.\w+|as\.data\.frame\(readxl::read_excel)\(\"[^\"]+\")", r_code)
+                    or [None, "read.csv(...)"])[1]
+            return "coder", (f"start with 'Load and peek': `df <- {read}, ...)`. keep the file in R's working folder "
+                             "(`setwd(...)`), then run the snippets top to bottom, or `source(\"analysis.R\")` from the zip."), [], None
         loader = (re.search(r"df = (pd\.read_\w+\([^\n]*\))", code) or [None, "pd.read_csv(...)"])[1]
         return "coder", (f"start with 'Load and peek': `df = {loader}`. keep the file next to your script or notebook, "
                          "then run the snippets top to bottom (the notebook export has them in order)."), [], None
@@ -160,5 +188,5 @@ def code_answer(results: Results, text: str) -> tuple[str, str, list[str], dict 
         cat, card = find_card(results, text, need_code=True) or ("coder", baseline or snippets[0][1])
         return cat, f"{card['title']}: {card['description']}", [], None
     titles = "; ".join(c["title"] for cat, c in snippets if cat == "coder")
-    return "coder", f"i wrote {len(snippets)} snippets ({titles} and more from the other cats). ask about them:", [
+    return "coder", f"i wrote {len(snippets)} snippets ({titles} and more from the other cats), in Python and R. ask about them:", [
         "which libraries does the code use?", "what seed does it use?", "show the code to load the data"], None

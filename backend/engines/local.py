@@ -19,7 +19,7 @@ from dataclasses import dataclass, field, replace
 from ..cats import CAT_IDS, paper_total, split_papers
 from ..files import FileInfo, Selection, cell_matcher as _matcher, cell_text, iter_rows, parse_number as _number
 from ..jobs import Job
-from . import lines, talk
+from . import lines, rcode, talk
 from .base import Engine, Reply
 
 # Cells that count as missing (compared lower-cased). "None" is deliberately not here:
@@ -218,6 +218,8 @@ class LocalEngine(Engine):
 
     async def chat(self, job: Job | None, message: str) -> Reply:
         await asyncio.sleep(0.6 * self.speed)   # sloths reply slowly
+        if job is None:                        # nothing to ask about yet: one hint, however many questions
+            return [Reply("sloth", random.choice(lines.CHAT_NO_JOB))]
         replies: list[Reply] = []
         for question in talk.split_questions(message):
             for reply in _as_list(self._chat(job, question)):
@@ -758,11 +760,16 @@ def _loader(f: Facts) -> str:
     code = f"df = {read}"
     for col, value in f.excluded:
         num = _number(value)
-        code += (f"\ndf = df[pd.to_numeric(df[{q(col)}], errors=\"coerce\") != {num!r}]" if num is not None
+        code += (f"\ndf = df[df[{q(col)}].notna()]" if value == ""        # blank cells are read as NaN
+                 else f"\ndf = df[pd.to_numeric(df[{q(col)}], errors=\"coerce\") != {num!r}]" if num is not None
                  else f"\ndf = df[df[{q(col)}].astype(str).str.strip() != {q(value)}]")
     if len(f.cols) < f.all_columns:
         code += f"\ndf = df[[{', '.join(q(c.name) for c in f.cols)}]]"
     return code
+
+
+def _r_loader(f: Facts) -> str:
+    return rcode.loader(f.filename, NA_VALUES, f.excluded, [c.name for c in f.cols], f.all_columns)
 
 
 def detective_cards(f: Facts) -> list[dict]:
@@ -789,7 +796,7 @@ q1, q3 = s.quantile([0.25, 0.75])
 iqr = q3 - q1
 mask = (s < q1 - 1.5 * iqr) | (s > q3 + 1.5 * iqr)
 print(mask.sum(), "suspicious rows")
-df[mask].head()""", "r": None} if num else None,
+df[mask].head()""", "r": rcode.outliers(_r_loader(f), num)} if num else None,
     }]
     dupes = len(f.duplicates)
     cards.append({
@@ -804,7 +811,7 @@ df[mask].head()""", "r": None} if num else None,
         if dupes else None,
         "code": {"python": """dupes = df[df.duplicated(keep="first")]
 print(len(dupes), "duplicate rows")
-df = df.drop_duplicates()""", "r": None},
+df = df.drop_duplicates()""", "r": rcode.DUPLICATES},
     })
     bad = f.type_issues[0].name if f.type_issues else None
     cards.append({
@@ -820,7 +827,7 @@ df = df.drop_duplicates()""", "r": None},
         "code": {"python": f"""bad = pd.to_numeric(df[{q(bad)}], errors="coerce").isna() & df[{q(bad)}].notna()
 print(df.loc[bad, {q(bad)}].unique()[:10])
 df[{q(bad)}] = pd.to_numeric(df[{q(bad)}].astype(str).str.replace(r"[$,]", "", regex=True), errors="coerce")""",
-                 "r": None} if bad else None,
+                 "r": rcode.types(bad)} if bad else None,
     })
     return cards
 
@@ -847,7 +854,7 @@ def artist_cards(f: Facts) -> list[dict]:
 
 df[{q(a.name)}].plot.hist(bins=10, edgecolor="black")
 plt.xlabel({q(a.name)}); plt.ylabel("count")
-plt.show()""", "r": None},
+plt.show()""", "r": rcode.histogram(a.name)},
         })
     if f.by_group:
         g, top = f.by_group
@@ -865,7 +872,7 @@ plt.show()""", "r": None},
    .sort_values(ascending=False)
    .plot.bar(edgecolor="black"))
 plt.show()""" if a else f"""df[{q(g.name)}].value_counts().plot.bar(edgecolor="black")
-plt.show()"""), "r": None},
+plt.show()"""), "r": rcode.by_category(g.name, a.name if a else None)},
         })
     if a and f.date_col and len(f.trend) >= 2:
         d = f.date_col.name
@@ -880,7 +887,7 @@ plt.show()"""), "r": None},
             "table": {"columns": ["month", a.name], "rows": [[m, round(v, 2)] for m, v in f.trend]},
             "code": {"python": f"""df[{q(d)}] = pd.to_datetime(df[{q(d)}], errors="coerce")
 df.set_index({q(d)})[{q(a.name)}].resample("MS").sum().plot(marker="s")
-plt.show()""", "r": None},
+plt.show()""", "r": rcode.trend(d, a.name)},
         })
     if f.pair:
         x, y, r, points, sampled = f.pair
@@ -896,7 +903,7 @@ plt.show()""", "r": None},
             "table": {"columns": [x.name, y.name], "rows": points},
             "code": {"python": f"""df.plot.scatter(x={q(x.name)}, y={q(y.name)}, s=8)
 print(df[[{q(x.name)}, {q(y.name)}]].corr())
-plt.show()""", "r": None},
+plt.show()""", "r": rcode.scatter(x.name, y.name)},
         })
     return cards
 
@@ -972,7 +979,7 @@ def coder_cards(f: Facts) -> list[dict]:
 print(df.shape)          # ({f.rows}, {len(f.cols)})
 print(df.dtypes)
 print(df.isna().sum().sort_values(ascending=False).head(10))
-df.head()""", "r": None},
+df.head()""", "r": rcode.load_peek(_r_loader(f), f.rows, len(f.cols))},
     }]
     g = f.by_group[0].name if f.by_group else None
     num = f.focus.name if f.focus else None
@@ -983,7 +990,7 @@ df.head()""", "r": None},
             summary += f'\nprint(df.groupby({q(g)})[{q(num)}].agg(["count", "mean", "median"]).round(2))'
     cards.append({"id": "coder-summary", "title": "Summary statistics",
                   "description": "describe() for numbers, value_counts() for the main category.",
-                  "chart": None, "code": {"python": summary, "r": None}})
+                  "chart": None, "code": {"python": summary, "r": rcode.summary_stats(g, num)}})
 
     target = f.target or (f.measures[-1] if f.measures else None)
     if target:
@@ -1018,7 +1025,7 @@ model = make_pipeline(prep, {model})
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 model.fit(X_train, y_train)
-print("{'accuracy' if classify else 'R^2'}:", round(model.score(X_test, y_test), 3))""", "r": None},
+print("{'accuracy' if classify else 'R^2'}:", round(model.score(X_test, y_test), 3))""", "r": rcode.baseline(target.name, classify)},
         })
     return cards
 
@@ -1055,7 +1062,7 @@ def janitor_cards(f: Facts) -> list[dict]:
             "code": {"python": """num_cols = df.select_dtypes("number").columns
 txt_cols = df.columns.difference(num_cols)
 df[num_cols] = df[num_cols].fillna(df[num_cols].median())
-df[txt_cols] = df[txt_cols].fillna("unknown")""", "r": None},
+df[txt_cols] = df[txt_cols].fillna("unknown")""", "r": rcode.FILL_MISSING},
         },
         {
             "id": "janitor-encoding",
@@ -1067,7 +1074,7 @@ df[txt_cols] = df[txt_cols].fillna("unknown")""", "r": None},
                       "values": [r[1] for r in encode[:MAX_BARS]]} if encode else None,
             "table": {"columns": ["column", "distinct_values", "strategy"], "rows": encode or [["(none)", 0, ""]]},
             "code": {"python": f"""df[{q(g.name)}] = df[{q(g.name)}].str.strip().str.lower()
-df = pd.get_dummies(df, columns=[{q(g.name)}], prefix={q(g.name)}, dtype=int)""", "r": None} if g else None,
+df = pd.get_dummies(df, columns=[{q(g.name)}], prefix={q(g.name)}, dtype=int)""", "r": rcode.encode(g.name)} if g else None,
         },
         {
             "id": "janitor-recipe",
@@ -1087,7 +1094,7 @@ df = pd.get_dummies(df, columns=[{q(g.name)}], prefix={q(g.name)}, dtype=int)"""
     return df
 
 df_clean = clean(df)
-df_clean.to_csv({q(stem + '_clean.csv')}, index=False)""", "r": None},
+df_clean.to_csv({q(stem + '_clean.csv')}, index=False)""", "r": rcode.recipe(fix, stem + "_clean.csv")},
         },
     ]
 

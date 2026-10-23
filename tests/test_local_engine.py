@@ -211,7 +211,17 @@ class LocalEngineTest(unittest.TestCase):
         self.assertNotIn("pd.read_csv(", load.text)
         self.assertIn("cafe.csv", ask("how do I run this?").text)
         self.assertIn("ipynb", ask("can I get a notebook?").text)
-        self.assertIn("soon", ask("is there R code?").text)
+        rcode = ask("is there R code?")
+        self.assertIn("every snippet has an R version", rcode.text)
+        self.assertEqual(rcode.code["lang"], "r")
+        self.assertIn("read.csv(", rcode.code["r"])
+        self.assertIn("set.seed(42)", ask("what seed does the R code use?").text)
+        self.assertIn("base R only", ask("which libraries does the R code need?").text)
+        self.assertIn("`lm`", ask("what model does the R code fit?").text)
+        r_load = ask("show me the R code to load the data")
+        self.assertEqual(r_load.code["lang"], "r")
+        self.assertEqual(ask("show me the code to load the data").code["lang"], "python")
+        self.assertIn("read.csv", ask("how do I run this in R?").text)
         finder = ask("show me the code that finds outliers")
         self.assertEqual(finder.who, "detective")
         self.assertIn("quantile", finder.code["python"])
@@ -262,6 +272,10 @@ class LocalEngineTest(unittest.TestCase):
         answer = ask("yes")
         self.assertIn("The highest quantity is 250", answer.text)
         self.assertNotIn("median", answer.text)
+
+    def test_without_a_file_several_questions_get_one_hint(self):
+        replies = asyncio.run(LocalEngine(speed=0.05).chat(None, "what is the max temp? and how many rows are there?"))
+        self.assertEqual([r.who for r in replies], ["sloth"])
 
     def test_buttons_and_askers_fit_the_question(self):
         ask = self._cafe()
