@@ -116,6 +116,8 @@ class NormaliseTest(unittest.TestCase):
         self.assertEqual(talk.normalise("weird prices", known), "weird price")
         self.assertEqual(talk.normalise("show the histgram", known), "show the histogram")
         self.assertEqual(talk.normalise("this is fine", known), "this is fine")      # real words stay
+        self.assertEqual(talk.normalise("is it big enough for deep learning", known),
+                         "is it big enough for deep learning")                        # not "deep cleaning"
 
     def test_chat_reads_them(self):
         path = Path(tempfile.mkdtemp()) / "cafe.csv"

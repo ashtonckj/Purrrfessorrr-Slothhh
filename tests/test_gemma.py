@@ -18,7 +18,7 @@ from unittest import mock
 
 from backend import api, engines
 from backend.engines import gemma, lines
-from backend.engines.gemma import GemmaEngine, Ollama, OllamaError, canonical, numbers_ok, parse_tool
+from backend.engines.gemma import GemmaEngine, Ollama, OllamaError, canonical, check_claims, parse_tool
 from backend.engines.local import LocalEngine
 from backend.files import FileInfo, inspect
 from backend.jobs import Job
@@ -179,12 +179,17 @@ class ToolCheckTest(unittest.TestCase):
         self.assertIsNotNone(self.tool("any gaps in it", tool="missing", column="rating", last="rating"))
         self.assertIsNone(self.tool("any gaps in it", tool="missing", column="rating", last="total"))
 
-    def test_numbers_must_come_from_the_facts(self):
+    def test_numbers_about_the_file_must_come_from_the_facts(self):
         facts = "File cafe.csv: 12063 rows. Data health 64/100. 1,501 cells are empty (1.0%)."
-        self.assertTrue(numbers_ok("It has 12,063 rows and 1501 empty cells; health is 64.", facts))
-        self.assertTrue(numbers_ok("There are 2 reasons, and Python 3 runs it.", facts))
-        self.assertFalse(numbers_ok("The average total is 42.7.", facts))
-        self.assertFalse(numbers_ok("About 12,000 rows.", facts))
+        names = ["total", "cafe.csv"]
+        ok = "It has 12,063 rows and 1501 empty cells. There are 2 reasons, and Python 3 runs it."
+        self.assertEqual(check_claims(ok, facts, names), (ok, 0))
+        general = "Hold out the last 20% of the timeline. LSTMs often need 1000 steps of history."
+        self.assertEqual(check_claims(general, facts, names), (general, 0))         # general numbers are fine
+        made_up = "The average total is 42.7. About 12,000 rows have gaps. A baseline comes first."
+        self.assertEqual(check_claims(made_up, facts, names), ("A baseline comes first.", 2))
+        self.assertEqual(check_claims("Your data gets an R^2 of 0.83.", facts, names), ("", 1))   # never computed
+        self.assertEqual(check_claims("The total column has 7 missing values.", facts, names), ("", 1))  # small, still false
 
 
 class GemmaChatTest(unittest.TestCase):
@@ -204,7 +209,8 @@ class GemmaChatTest(unittest.TestCase):
         self.assertEqual([r.who for r in reply], ["coder"])
         self.assertIn("DataFrame", reply[0].text)
         system = llm.prompts[-1][0][0]["content"]
-        self.assertIn("imports pandas, matplotlib, sklearn", system)       # read from the generated code
+        self.assertRegex(system, r"pandas \(in [^)]*Load and peek")         # read from the generated code
+        self.assertIn("matplotlib (in Distribution of quantity", system)
         self.assertIn("pip install pandas matplotlib scikit-learn", system)
         self.assertNotIn("100000", system)                                  # a cell value: rows are never sent
         self.assertLess(len(system), 8000)
@@ -223,21 +229,28 @@ class GemmaChatTest(unittest.TestCase):
         second = ask("why should i drop duplicates?")
         self.assertFalse(any("napping" in r.text for r in second))
 
-    def test_a_guess_is_asked_before_it_is_answered(self):
+    def test_a_lookup_is_answered_and_says_how_it_was_read(self):
         engine, job, llm, ask = self.engine(lambda m, s: json.dumps(
             {"tool": "stat", "column": "customer_age", "stat": "min", "bins": 0}))
-        asked = ask("zap me the tiniest age")                               # the rules don't read this one
-        self.assertEqual(asked[0].choices, ["yes", "no"])
-        self.assertIn("what is the lowest customer_age?", asked[0].text)
+        reply = ask("zap me the tiniest age")                               # the rules don't read this one
         self.assertIsNotNone(llm.prompts[-1][1])                            # asked for JSON with a schema
-        answer = ask("yes")
-        self.assertIn(f"The lowest customer_age is {engine._facts['j'].cols[8].stats['min']:.0f}", answer[0].text)
-        ask("zap me the tiniest age")
-        self.assertEqual(ask("no")[0].text, lines.CHAT_NEVERMIND)
+        self.assertIn("(reading that as 'what is the lowest customer_age?')", reply[0].text)
+        self.assertIn(f"The lowest customer_age is {engine._facts['j'].cols[8].stats['min']:.0f}", reply[0].text)
 
-    def test_a_guess_about_a_made_up_column_is_dropped(self):
+    def test_a_chart_change_is_asked_before_it_is_made(self):
+        engine, job, llm, ask = self.engine(lambda m, s: json.dumps(
+            {"tool": "histogram", "column": "", "stat": "", "bins": 15}))
+        asked = ask("make it chunkier with 15 slices")
+        self.assertEqual(asked[0].choices, ["yes", "no"])
+        self.assertIn("show the histogram with 15 bins", asked[0].text)
+        self.assertIsNone(asked[0].card)                                    # nothing changed yet
+        self.assertEqual(ask("no")[0].text, lines.CHAT_NEVERMIND)
+        ask("make it chunkier with 15 slices")
+        self.assertEqual(ask("yes")[0].card["spec"]["bins"], 15)
+
+    def test_a_guess_about_a_made_up_column_asks_instead(self):
         _, _, _, ask = self.engine(lambda m, s: json.dumps({"tool": "stat", "column": "weather", "stat": "max", "bins": 0}))
-        self.assertTrue(ask("zorp the weather")[0].text.startswith("mmh..."))   # the usual hint, no guess
+        self.assertEqual(ask("zorp the weather")[0].text, lines.CHAT_CLARIFY)    # no guess, no unrelated hint
 
     def test_simple_things_never_wait_for_the_model(self):
         _, _, llm, ask = self.engine(lambda m, s: self.fail("the model was asked"))
@@ -257,10 +270,11 @@ class GemmaChatTest(unittest.TestCase):
         ask("tell me about rating")
         other = Job(id="k", file=_cafe(self.dir))
         asyncio.run(engine.run(other))
+        sent = lambda: " ".join(m["content"] for m in llm.prompts[-1][0])
         asyncio.run(engine.chat(other, "why should i fill the gaps?"))
-        self.assertNotIn("tell me about rating", llm.prompts[-1][0][0]["content"])
+        self.assertNotIn("tell me about rating", sent())
         ask("why should i fill the gaps?")
-        self.assertIn("tell me about rating", llm.prompts[-1][0][0]["content"])
+        self.assertIn("tell me about rating", sent())
 
     def test_the_api_shape_is_unchanged(self):
         engine, job, _, _ = self.engine(lambda m, s: "fine")
@@ -271,24 +285,42 @@ class GemmaChatTest(unittest.TestCase):
         self.assertEqual(reply["card"]["spec"]["bins"], 20)
 
 
+MODEL = engines.settings.ollama_model
+
+
 def _ollama_ready() -> bool:
     try:
         with urllib.request.urlopen("http://127.0.0.1:11434/api/tags", timeout=2) as r:
-            return any(m["name"] == "gemma3:1b" for m in json.load(r)["models"])
+            return any(m["name"] == MODEL for m in json.load(r)["models"])
     except OSError:
         return False
 
 
-@unittest.skipUnless(_ollama_ready(), "Ollama with gemma3:1b is not running")
+@unittest.skipUnless(_ollama_ready(), f"Ollama with {MODEL} is not running")
 class RealGemmaTest(unittest.TestCase):
+    """The real model (OLLAMA_MODEL). Its wording changes between models and versions, so these only check that an
+    answer arrives through the chat, from the right cat, about the right subject; they cannot prove it is correct."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.engine = GemmaEngine(0.01, Ollama("http://127.0.0.1:11434", MODEL, 180))
+        cls.job = Job(id="real", file=_cafe(Path(tempfile.mkdtemp())))
+        asyncio.run(cls.engine.run(cls.job))
+
+    def ask(self, message):
+        return asyncio.run(self.engine.chat(self.job, message))
+
     def test_a_real_answer_reaches_the_chat(self):
-        engine = GemmaEngine(0.01, Ollama("http://127.0.0.1:11434", "gemma3:1b", 120))
-        job = Job(id="real", file=_cafe(Path(tempfile.mkdtemp())))
-        asyncio.run(engine.run(job))
-        reply = asyncio.run(engine.chat(job, "what's the difference between a mean and a median?"))
+        reply = self.ask("what's the difference between a mean and a median?")
         self.assertEqual(reply[0].who, "scribe")
         self.assertIn("median", reply[0].text.lower())
         self.assertGreater(len(reply[0].text), len(lines.CHAT_VOICE["scribe"]) + 20)
+
+    def test_a_real_follow_up_stays_on_the_subject(self):
+        self.ask("would an LSTM make sense for this data?")
+        reply = self.ask("does it need a GPU?")
+        self.assertEqual(reply[-1].who, "coder")
+        self.assertRegex(reply[-1].text.lower(), r"gpu|cpu")
 
 
 if __name__ == "__main__":

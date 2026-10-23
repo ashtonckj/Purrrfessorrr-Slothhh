@@ -9,7 +9,7 @@ cat reports back with findings, charts, explanations, code and cleaning steps.
 Everything runs on your machine; the app makes no external network requests.
 The cats read **every row** of your file and report real statistics (missing
 values, IQR outliers, duplicates, type problems, distributions, correlations),
-using only the Python standard library. Optionally, **Gemma 3 (1B)** running in
+using only the Python standard library. Optionally, **Gemma 3 (4B)** running in
 [Ollama](https://ollama.com) on the same computer helps the chat explain things
 and read unusual questions. Gemma is not bundled: install it separately (below),
 or skip it and the chat uses its built-in rules.
@@ -28,21 +28,30 @@ or skip it and the chat uses its built-in rules.
 browser (static/)  --HTTP + SSE-->  FastAPI (backend/api.py)  -->  engine (backend/engines/)
                                                                      |  analysis: plain Python over every row
                                                                      |  chat: rules first, then Gemma
-                                                                     +--HTTP-->  Ollama on 127.0.0.1:11434 (gemma3:1b)
+                                                                     +--HTTP-->  Ollama on 127.0.0.1:11434 (gemma3:4b)
 ```
 
 - **Analysis is deterministic.** On upload, `analyse()` profiles every column and the five cats
   turn the facts into cards (charts, tables, Python and R code). No language model is involved,
   so the same file always gets the same report. The checks are listed in [EDA.md](EDA.md).
-- **The chat is rules first.** Messages are cleaned up (`thank youuu` -> `thank you`, `avrage
-  totl` -> `average total`), then the rules answer anything they recognise from the computed
-  facts: statistics, missing values, outliers, columns, values, code questions and chart edits.
-- **Gemma handles language, never numbers.** It answers "why / explain / what is" questions
-  using a short summary of the facts (never the rows). An answer that quotes a number not in
-  those facts is replaced by the rules' answer. When the rules do not understand a message,
-  Gemma proposes a tool request as JSON; the backend checks it against the file and the cat asks
-  "did you mean ...?" before answering, because a 1B model guesses wrong too often to act on silently.
-- **Fallback:** if Ollama is not running, the chat says so once and the rules answer alone.
+- **The chat picks a path for each message** (`GemmaEngine._answer` in `backend/engines/gemma.py`):
+  1. *Sure things go to the rules:* chart edits ("use 30 bins", "undo"), a named statistic ("highest
+     traffic_volume"), "do I need matplotlib?" (answered from the generated code's real imports).
+     Messages are cleaned up first (`thank youuu` -> `thank you`, `avrage totl` -> `average total`).
+  2. *Discussions go to Gemma:* why / explain questions, advice ("best", "make sense", "limitations",
+     "useful") and machine-learning words (LSTM, forecasting, random forest, ...). Gemma gets the
+     file's facts (size, target and task, time span, column summaries, correlations, the cards, what
+     the code imports and how the baseline splits the data) and the last three turns, never the rows.
+  3. *Everything else goes to the rules.* If they cannot really answer, a follow-up to the last
+     discussion ("does it need a GPU?") goes back to Gemma; otherwise Gemma reads the message as a
+     JSON tool request that the backend checks against the file. Lookups are answered and say how
+     the message was read ("reading that as 'what is the lowest temp?'"), chart changes ask first,
+     and vague messages ("is it ok?") get a question back instead of a guess.
+- **Numbers about your file always come from Python.** In Gemma's answers, any sentence about the
+  file (its columns, rows, missing values, scores, ...) whose numbers are not in Python's facts is
+  removed, with a note. General numbers ("hold out the last 20%") are fine.
+- **Fallback:** if Ollama is not running, the rules answer what they can; questions only the model
+  can answer get a plain "that needs my language model" instead of an unrelated reply.
 
 ## Install and run
 
@@ -82,27 +91,29 @@ python3 -m venv .venv
 
 ### Gemma and Ollama (optional)
 
-The app works without them; with them, the chat can explain concepts and code. Gemma 3 1B needs
-about 1 GB of disk and 1-2 GB of free memory, and runs on a CPU (faster with a GPU).
+The app works without them; with them, the chat can explain concepts and code. Gemma 3 4B needs
+about 3.5 GB of disk and 4 GB of free memory (graphics memory if you have a GPU; it also runs on a CPU,
+slowly). On a weaker computer use `gemma3:1b` (1 GB) by setting `OLLAMA_MODEL=gemma3:1b`: it explains
+less accurately and misreads more questions.
 
 1. **Install Ollama**
    - Windows: download the installer from <https://ollama.com/download>, or `winget install Ollama.Ollama`.
    - macOS: download the app from <https://ollama.com/download>, or `brew install ollama`.
    - Linux: `curl -fsSL https://ollama.com/install.sh | sh`
-2. **Download the model** (once): `ollama pull gemma3:1b`
+2. **Download the model** (once): `ollama pull gemma3:4b`
 3. **Check it:**
    ```bash
-   ollama list                          # gemma3:1b should be listed
-   ollama run gemma3:1b "Say hi in five words"
+   ollama list                          # gemma3:4b should be listed
+   ollama run gemma3:4b "Say hi in five words"
    curl http://127.0.0.1:11434/api/tags # the HTTP API the app uses
    ```
 4. **Keep Ollama running.** The Windows and macOS apps start it in the background (tray / menu bar
    icon). On Linux the installer sets up a service; otherwise run `ollama serve` in a terminal.
-5. **Start the app** as usual (`run.bat`, `./run.sh`). The terminal prints `gemma: gemma3:1b is loaded`,
+5. **Start the app** as usual (`run.bat`, `./run.sh`). The terminal prints `gemma: gemma3:4b is loaded`,
    or what is missing. Settings (gear icon) shows the engine.
 
 The app loads the model in the background at start-up, so the first answer after a reboot can
-take up to a minute; after that, answers take about a second. It never downloads the model.
+take up to a minute; after that, answers take a few seconds. It never downloads the model.
 
 To turn Gemma off, set `ENGINE=local` in `config.env`.
 
@@ -168,7 +179,7 @@ Edit **`config.env`** (environment variables with the same name override it):
 | `CAT_SPEED` | `1.0` | Cat animation multiplier (`0.3` = fast demo). The numbers are real either way. |
 | `ENGINE` | `local` (`gemma` in the shipped `config.env`) | `gemma` adds Gemma to the chat; `local` is rules only. |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | Where Ollama listens. Must be this computer (`127.0.0.1`, `localhost` or `::1`): the prompts describe your data. |
-| `OLLAMA_MODEL` | `gemma3:1b` | Any model you have pulled, e.g. `gemma3:4b` (better answers, slower). |
+| `OLLAMA_MODEL` | `gemma3:4b` | Any model you have pulled, e.g. `gemma3:1b` (smaller and faster, weaker answers). |
 | `OLLAMA_TIMEOUT` | `45` | Seconds to wait for one answer before the rules answer instead. |
 
 ## Customising
@@ -241,7 +252,9 @@ tests/                  python -m unittest discover tests
 
 (On macOS / Linux: `.venv/bin/python`.) The R tests run the generated R with `Rscript` and are
 skipped without R. One Gemma test asks the real model a question and is skipped when Ollama with
-`gemma3:1b` is not running; the other Gemma tests use a stand-in, so the suite needs no model.
+the configured model is not running; the other Gemma tests use a stand-in, so the suite needs no model.
+The real-model tests only check that an answer arrives from the right cat on the right subject:
+a model's wording changes, so they cannot prove an answer is correct.
 
 ## Licences
 
@@ -259,11 +272,14 @@ model with the app, you must pass those terms on to your users. **Ollama** is MI
 - **Text looks like a normal monospace font:** the pixel font isn't installed (see above).
 - **"ollama is not running"** in the chat: start the Ollama app (or `ollama serve`), then ask again
   (the app retries after 30 seconds). Check with `curl http://127.0.0.1:11434/api/tags`.
-- **"ollama has no gemma3:1b model":** run `ollama pull gemma3:1b`, and make sure `OLLAMA_MODEL`
+- **"ollama has no gemma3:4b model":** run `ollama pull gemma3:4b`, and make sure `OLLAMA_MODEL`
   matches a name in `ollama list`.
 - **"took more than 45 s":** the model was still loading (first answer after a reboot) or the
   computer is busy. Ask again, or raise `OLLAMA_TIMEOUT`.
 - **Out of memory / "model requires more system memory":** close other programs, or stay with
-  `gemma3:1b` (bigger Gemma models need more). `ENGINE=local` works with no model at all.
-- **"quoted numbers i could not check":** Gemma's answer included a number that is not in the
-  computed facts, so the app showed the rules' answer instead. This is working as intended.
+  switch to `OLLAMA_MODEL=gemma3:1b` (bigger Gemma models need more). `ENGINE=local` works with no model at all.
+- **"i left out a sentence that quoted a number about your file":** Gemma said something about your
+  file with a number Python never computed, so that sentence was removed. Working as intended.
+- **Gemma's advice sounds confident but wrong:** a small local model can misjudge things that have
+  no number to check (it once called six years of hourly data "short"). Treat its suggestions as
+  ideas to test; the cards and statistics are the facts.

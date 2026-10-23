@@ -353,7 +353,8 @@ class LocalEngine(Engine):
                 return self._ask(convo, convo.cat if convo.cat in ("detective", "janitor") else "scribe", options, None,
                                  facts, intent, wanted)
         if open_ended and not STAT.search(text):
-            if COUNT.search(text) and col is None and re.search(r"\brows?\b", text):
+            # "how many rows have snow?" names a column: not the row total (the cat asks which column below)
+            if COUNT.search(text) and col is None and re.search(r"\brows?\b", text) and not _fuzzy_columns(facts, text):
                 left_out = f" ({facts.excluded_rows:,} more were left out by your filter)" if facts.excluded_rows else ""
                 return self._say(convo, "scribe", None, f"{facts.rows:,} rows{left_out}.")
             if COUNT.search(text) and col is None and COLUMNS.search(text):

@@ -64,7 +64,7 @@ def load_settings() -> Settings:
         cat_speed=max(0.05, float(get("CAT_SPEED", "1.0"))),
         engine=get("ENGINE", "local").strip().lower(),
         ollama_url=get("OLLAMA_URL", "http://127.0.0.1:11434"),
-        ollama_model=get("OLLAMA_MODEL", "gemma3:1b"),
+        ollama_model=get("OLLAMA_MODEL", "gemma3:4b"),
         ollama_timeout=max(1.0, float(get("OLLAMA_TIMEOUT", "45"))),
     )
 
