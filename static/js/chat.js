@@ -112,7 +112,7 @@ export function addMessage({ from, text = '', icon: iconId, extra = [], actions 
   const cont = lastSender === from;
   lastSender = from;
 
-  const textEl = el('p', { class: 'msg__text' }, text);
+  const textEl = el('p', { class: 'msg__text' }, inlineCode(text));
   if (iconId) textEl.append(createSprite(iconId, { scale: 1 }));
 
   const body = el('div', { class: 'bubble__body' },
@@ -133,6 +133,13 @@ export function addMessage({ from, text = '', icon: iconId, extra = [], actions 
   log.append(msg);
   scrollToEnd();
   return msg;
+}
+
+/** `backticks` in a message become inline code; an odd one out is left as typed. */
+function inlineCode(text) {
+  const parts = text.split('`');
+  if (parts.length < 3 || parts.length % 2 === 0) return text;
+  return parts.map((part, i) => (i % 2 ? el('code', { class: 'msg__code', text: part }) : part));
 }
 
 /** Show the sender's typing dots for `ms`, then remove them. */

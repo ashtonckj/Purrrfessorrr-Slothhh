@@ -5,6 +5,7 @@
  */
 import * as api from './api.js';
 import * as chat from './chat.js';
+import { codeBlock } from './codebox.js';
 import { emit } from './bus.js';
 import { CAT_ICONS, CATS, NAMES, SLOTH, UI } from '../copy.js';
 import { pickColumns } from './picker.js';
@@ -18,6 +19,7 @@ const state = {
   busy: false,      // a file is being uploaded / analysed
   closeStream: null,
   jobs: 0,
+  lastCat: null,    // the cat that answered last, who types while a tapped choice is answered
 };
 
 export function initFlow(config) {
@@ -53,17 +55,30 @@ export function greet() {
 
 // ------------------------------------------------------------------- text
 
-function handleText(text) {
+const catName = cat => NAMES[cat].split(' ')[0].toLowerCase();
+
+/**
+ * Send a message and show the answers: one bubble per question, from whichever cat knows. The sloth
+ * hands new questions over, but stays quiet when you are answering a cat (typing "yes" or tapping a choice).
+ */
+function handleText(text, { tapped = false } = {}) {
   chat.addMessage({ from: 'user', text });
-  const reply = api.chat(state.jobId, text).catch(() => ({ from: 'sloth', reply: say(SLOTH.chatFailed) }));
+  const replies = api.chat(state.jobId, text).then(r => r.replies, () => [{ from: 'sloth', reply: say(SLOTH.chatFailed) }]);
   queue(async () => {
-    const [{ from = 'sloth', reply: answer, choices = [] }] = await Promise.all([reply, chat.showTyping('sloth', 1000)]);
-    if (from !== 'sloth') {              // the sloth hands the question to the right cat
-      chat.addMessage({ from: 'sloth', text: say(SLOTH.asking, { cat: NAMES[from].split(' ')[0].toLowerCase() }) });
-      await chat.showTyping(from, 800);
+    const typist = tapped && state.lastCat ? state.lastCat : 'sloth';
+    const [answers] = await Promise.all([replies, chat.showTyping(typist, 1000)]);
+    const cats = [...new Set(answers.map(r => r.from).filter(from => from !== 'sloth'))];
+    if (cats.length && !tapped && !answers[0].followup) {
+      chat.addMessage({ from: 'sloth', text: cats.length === 1
+        ? say(SLOTH.asking, { cat: catName(cats[0]) })
+        : say(SLOTH.askingMany, { cats: new Intl.ListFormat('en').format(cats.map(catName)) }) });
     }
-    chat.addMessage({ from, text: answer, icon: CAT_ICONS[from],
-      actions: choices.map(label => ({ label, onClick: () => handleText(label) })) });
+    for (const [i, { from, reply, choices = [], code }] of answers.entries()) {
+      if (from !== 'sloth' && (i > 0 || typist !== from)) await chat.showTyping(from, 700);
+      chat.addMessage({ from, text: reply, icon: CAT_ICONS[from], extra: code ? [codeBlock(code)] : [],
+        actions: choices.map(label => ({ label, onClick: () => handleText(label, { tapped: true }) })) });
+      if (from !== 'sloth') state.lastCat = from;
+    }
   });
 }
 

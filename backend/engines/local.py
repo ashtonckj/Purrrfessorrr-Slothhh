@@ -14,7 +14,7 @@ import random
 import re
 import statistics
 from collections import Counter, defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from ..cats import CAT_IDS, paper_total, split_papers
 from ..files import FileInfo, Selection, cell_matcher as _matcher, cell_text, iter_rows, parse_number as _number
@@ -48,6 +48,21 @@ NO = re.compile(r"(no|nope|nah|n|cancel|never ?mind|forget it)")
 CHAT_WORDS = {"show", "tell", "with", "from", "have", "that", "this", "what", "does", "data", "about", "there",
               "which", "where", "give", "find", "look", "check", "please", "dataset", "file", "column", "columns"}
 MAX_CHOICES = 6
+# Which numbers a question asks for, so "the highest temp" gets the max and not the whole profile.
+WANTED = [(stat, re.compile(words)) for stat, words in (
+    ("mode", r"most (common|frequent|popular)|\bmode\b"),
+    ("rare", r"least (common|frequent|popular)|\brarest\b"),
+    ("min", r"\b(min|minimum|lowest|smallest|earliest|oldest)\b"),
+    ("max", r"\b(max|maximum|highest|largest|biggest|greatest|latest|newest|peak)\b"),
+    ("range", r"\brange\b"),
+    ("mean", r"\b(mean|average|avg)\b"),
+    ("median", r"\bmedian\b"),
+    ("std", r"\b(std|standard deviation|spread|variance)\b"),
+    ("quartiles", r"\b(quartiles?|iqr|percentiles?)\b"),
+    ("sum", r"\bsum\b"),
+)]
+STAT_LABEL = {"mode": "most common value", "rare": "least common value", "min": "lowest value", "max": "highest value",
+              "range": "range", "mean": "mean", "median": "median", "std": "spread", "quartiles": "quartiles", "sum": "sum"}
 # Questions about what is in the data (the scribe answers them from the facts).
 SAMPLE = re.compile(r"\b(sample|first (few )?rows?|top rows?|few rows|some rows|head|preview|example rows?|look like)\b"
                     r"|\bshow (me )?(the )?(data|rows|dataset)\b")
@@ -128,6 +143,7 @@ class Pending:
     default: Col | None               # what "yes" means; None when there are several equal guesses
     ask: Reply                        # repeated if the user answers with just "yes" to a list
     intent: str = "profile"           # "values" when the user asked to list a column's values
+    wanted: tuple[str, ...] = ()      # the stats asked for ("max", ...), kept while the cat checks the column
 
 
 @dataclass
@@ -136,7 +152,7 @@ class Convo:
     cat: str | None = None
     col: Col | None = None
     pending: Pending | None = None
-    last: Reply | None = None         # the last reply, for "say that again"
+    last: list[Reply] | None = None   # the last answer, for "say that again"
 
 
 # ------------------------------------------------------------------ engine
@@ -201,12 +217,20 @@ class LocalEngine(Engine):
 
     async def chat(self, job: Job | None, message: str) -> Reply:
         await asyncio.sleep(0.6 * self.speed)   # sloths reply slowly
-        reply = self._chat(job, message)
+        replies: list[Reply] = []
+        for question in talk.split_questions(message):
+            for reply in _as_list(self._chat(job, question)):
+                if any(r.text == reply.text for r in replies):
+                    continue                   # two vague questions, one hint is enough
+                if replies and reply.who == replies[-1].who != "sloth":
+                    voice = f"{lines.CHAT_VOICE[reply.who]} "      # same cat again: say it once
+                    reply = replace(reply, text=reply.text.removeprefix(voice))
+                replies.append(reply)
         if job is not None and job.id in self._convo:
-            self._convo[job.id].last = reply
-        return reply
+            self._convo[job.id].last = replies
+        return replies
 
-    def _chat(self, job: Job | None, message: str) -> Reply:
+    def _chat(self, job: Job | None, message: str) -> Reply | list[Reply]:
         """Read a message in this order: an open question, small talk, health, code, what is inside the data
         (columns, rows, values), a column or topic for one cat, and last any card that matches."""
         if job is None:
@@ -225,13 +249,16 @@ class LocalEngine(Engine):
                 return Reply("sloth", lines.CHAT_NEVERMIND)
             if kind == "again":
                 convo.pending = pending
-                return pending.ask
+                return replace(pending.ask, followup=True)
             if kind != "new":
-                return self._reply(job, facts, convo, pending.cat, col, intent=pending.intent)
+                answer_ = self._reply(job, facts, convo, pending.cat, col, intent=pending.intent, wanted=pending.wanted)
+                return replace(answer_, followup=True)
 
-        col = _mentioned_column(facts, text)
+        mentions = _mentioned_columns(facts, text)
+        cols = [c for c, _, _ in mentions]
+        col = cols[0] if cols else None
         code = talk.CODE.search(text)
-        if code and col and code.group(0) in col.name.lower():
+        if code and any(code.group(0) in c.name.lower() for c in cols):
             code = None                        # "zip code" can be a column
         small = talk.small_talk(text)
         if small:
@@ -239,7 +266,7 @@ class LocalEngine(Engine):
         if talk.HELP.search(text) or text.strip(" ?!.") == "help":
             return Reply("sloth", lines.CHAT_HELP.format(example=facts.cols[0].name))
         if talk.REPEAT.search(text) and convo.last:
-            return convo.last
+            return list(convo.last)
         if "health" in text or ("score" in text and not code):
             score = facts.health_score
             if SCORE_HOW.search(text):
@@ -249,13 +276,19 @@ class LocalEngine(Engine):
         if code:                               # about the generated Python: seed, libraries, the model, ...
             if not job.results:
                 return Reply("coder", lines.CHAT_BUSY["coder"])
-            who, body, choices = talk.code_answer(job.results, text)
-            return self._say(convo, who, None, body, choices)
+            who, body, choices, snippet = talk.code_answer(job.results, text)
+            return replace(self._say(convo, who, None, body, choices), code=snippet)
 
         cat = next((c for c, words in TOPICS.items() if any(w in text for w in words)), None)
         open_ended = cat in (None, "scribe")   # not a quality or chart question
         intent = "values" if open_ended and (VALUES.search(text) or COUNT.search(text)) else "profile"
+        wanted = _wanted(text)
         if open_ended and not STAT.search(text):
+            if COUNT.search(text) and col is None and re.search(r"\brows?\b", text):
+                left_out = f" ({facts.excluded_rows:,} more were left out by your filter)" if facts.excluded_rows else ""
+                return self._say(convo, "scribe", None, f"{facts.rows:,} rows{left_out}.")
+            if COUNT.search(text) and col is None and COLUMNS.search(text):
+                return self._say(convo, "scribe", None, f"{len(facts.cols)} columns.", ["what columns are there?"])
             if SAMPLE.search(text):
                 return self._say(convo, "scribe", None, _sample_text(facts), ["what columns are there?"])
             if col is None and COLUMNS.search(text):
@@ -265,10 +298,16 @@ class LocalEngine(Engine):
                 c, value, n = hit
                 return self._say(convo, "scribe", c, f"{value!r} appears {n:,} times in {c.name} "
                                                      f"({n / max(1, facts.rows):.1%} of {facts.rows:,} rows).")
+        if len(cols) > 1 and cat in (None, "scribe", "detective", "janitor"):
+            # "highest temp and lowest rain": each column gets the stats named next to it, or all of them
+            return [self._reply(job, facts, convo, cat or "scribe", c, intent=intent,
+                                wanted=_wanted(text, lo, end) or wanted)
+                    for (c, _, end), lo in zip(mentions, [0] + [e for _, _, e in mentions])]
         if col is None:
             guesses = _fuzzy_columns(facts, text)
             if guesses:                        # "weather" could be weather_main or weather_description
-                return self._ask(convo, cat or convo.cat or "scribe", guesses, None, facts, intent)
+                asker = cat or (convo.cat if convo.cat in ("detective", "janitor") else "scribe")   # never the coder
+                return self._ask(convo, asker, guesses, None, facts, intent, wanted)
             if convo.col and FOLLOW_UP.search(text) and cat != "artist":
                 col = convo.col                # "and what about it?"
         more = bool(MORE.search(text) and convo.cat)
@@ -277,7 +316,8 @@ class LocalEngine(Engine):
         elif cat is None and col:
             # Only a short follow-up ("total?", "and region?") keeps the last cat; "tell me about x" is a new ask.
             short = len(text.split()) <= 3 or FOLLOW_UP.search(text)
-            cat = convo.cat if short and convo.cat in ("detective", "janitor") and intent == "profile" else "scribe"
+            keep = short and convo.cat in ("detective", "janitor") and intent == "profile" and not wanted
+            cat = convo.cat if keep else "scribe"
         elif col and cat == "artist":          # "a chart of yield": the chart card about it, if there is one
             hit = talk.find_card(job.results, text, only="artist")
             if hit:
@@ -287,7 +327,8 @@ class LocalEngine(Engine):
             cat = "scribe"
         if col is None and STAT.search(text) and facts.measures:
             default = facts.focus or facts.measures[0]
-            return self._ask(convo, "scribe", [default] + [c for c in facts.measures if c is not default], default, facts)
+            return self._ask(convo, "scribe", [default] + [c for c in facts.measures if c is not default], default, facts,
+                             wanted=wanted)
         if cat is None:                        # nothing obvious: maybe one of the cards is about it
             hit = talk.find_card(job.results, text)
             if hit:
@@ -297,7 +338,7 @@ class LocalEngine(Engine):
             hit = talk.find_card(job.results, text, only=cat)
             if hit:
                 return self._card_reply(convo, facts, *hit)
-        return self._reply(job, facts, convo, cat, col, more, intent)
+        return self._reply(job, facts, convo, cat, col, more, intent, wanted)
 
     def _say(self, convo: Convo, cat: str, col: Col | None, text: str, choices: list[str] | None = None) -> Reply:
         """An answer straight from the facts or the code (no card needed), remembered for follow-ups."""
@@ -307,23 +348,24 @@ class LocalEngine(Engine):
     def _card_reply(self, convo: Convo, facts: Facts, cat: str, card: dict) -> Reply:
         """Answer with one card: its title carries the headline number, its description says what it means."""
         convo.cat, convo.col = cat, None
-        choices = _worst_columns(cat, facts)
+        # Column buttons only where they lead on from this card (outliers -> per column), not after every answer.
+        choices = _worst_columns(cat, facts) if card["id"] in ("detective-outliers", "janitor-missing", "scribe-summary") else []
         tip = f" {lines.CHAT_TAP}" if choices and cat in ("detective", "janitor") else ""
         return Reply(cat, f"{lines.CHAT_VOICE[cat]} {card['title']}. {card['description']}{tip}", choices)
 
     def _reply(self, job: Job, facts: Facts, convo: Convo, cat: str, col: Col | None, more: bool = False,
-               intent: str = "profile") -> Reply:
+               intent: str = "profile", wanted: tuple[str, ...] = ()) -> Reply:
         if intent == "values" and col and cat == "scribe":
             return self._say(convo, "scribe", col, _values_text(col, facts.rows))
         if cat not in job.results:
             return Reply(cat, lines.CHAT_FAILED if job.finished else lines.CHAT_BUSY[cat])
         convo.cat, convo.col = cat, col
-        text = f"{lines.CHAT_VOICE[cat]} {answer(cat, facts, col, job.results[cat], more)}"
+        text = f"{lines.CHAT_VOICE[cat]} {answer(cat, facts, col, job.results[cat], more, wanted)}"
         choices = [] if col else _worst_columns(cat, facts)
         return Reply(cat, text + (f" {lines.CHAT_TAP}" if choices and cat != "scribe" else ""), choices)
 
     def _ask(self, convo: Convo, cat: str, options: list[Col], default: Col | None, facts: Facts,
-             intent: str = "profile") -> Reply:
+             intent: str = "profile", wanted: tuple[str, ...] = ()) -> Reply:
         """Ask the user to confirm or pick a column, and remember that we asked."""
         names = [c.name for c in options[:MAX_CHOICES]]
         if default is not None and len(options) > 1:     # stat question without a column
@@ -336,7 +378,7 @@ class LocalEngine(Engine):
             body, choices = lines.CHAT_ASK_MANY.format(names=", ".join(names), more=more), names + ["all"]
         reply = Reply(cat, f"{lines.CHAT_VOICE[cat]} {body}", choices)
         convo.pending = Pending(cat, options, default if default is not None else (options[0] if len(options) == 1 else None),
-                                reply, intent)
+                                reply, intent, wanted)
         return reply
 
 
@@ -372,13 +414,36 @@ def _worst_columns(cat: str, facts: Facts) -> list[str]:
     return []
 
 
-def _mentioned_column(facts: Facts, text: str) -> Col | None:
-    """The longest column name the message mentions ("customer age" matches customer_age)."""
+def _mentioned_columns(facts: Facts, text: str) -> list[tuple[Col, int, int]]:
+    """Every column the message names, as (column, start, end) in reading order.
+
+    Longer names are matched first and blanked out, so "temp" is not found again inside "temp_max";
+    "customer age" matches customer_age and "holidays" matches holiday.
+    """
+    found, masked = [], text
     for c in sorted(facts.cols, key=lambda c: -len(c.name)):
         for variant in {c.name.lower(), c.name.lower().replace("_", " ")}:
-            if variant and re.search(rf"(?<!\w){re.escape(variant)}(?:e?s)?(?!\w)", text):
-                return c
-    return None
+            m = variant and re.search(rf"(?<!\w){re.escape(variant)}(?:e?s)?(?!\w)", masked)
+            if m:
+                found.append((c, m.start(), m.end()))
+                masked = masked[:m.start()] + " " * (m.end() - m.start()) + masked[m.end():]
+                break
+    return sorted(found, key=lambda f: f[1])
+
+
+def _mentioned_column(facts: Facts, text: str) -> Col | None:
+    found = _mentioned_columns(facts, text)
+    return found[0][0] if found else None
+
+
+def _wanted(text: str, lo: int = 0, hi: int | None = None) -> tuple[str, ...]:
+    """The stats a question asks for, optionally only those named between `lo` and `hi`."""
+    hi = len(text) if hi is None else hi
+    return tuple(stat for stat, words in WANTED if any(lo <= m.start() < hi for m in words.finditer(text)))
+
+
+def _as_list(reply: Reply | list[Reply]) -> list[Reply]:
+    return reply if isinstance(reply, list) else [reply]
 
 
 def _mentioned_value(facts: Facts, text: str, col: Col | None) -> tuple[Col, str, int] | None:
@@ -420,7 +485,8 @@ def _sample_text(facts: Facts) -> str:
     return f"the first {len(rows)} rows{note}:\n" + "\n".join(rows)
 
 
-def answer(cat: str, facts: Facts, col: Col | None, cards: list[dict], more: bool = False) -> str:
+def answer(cat: str, facts: Facts, col: Col | None, cards: list[dict], more: bool = False,
+           wanted: tuple[str, ...] = ()) -> str:
     """A cat's chat answer, from the facts (about one column) or its own cards."""
     if col and cat == "detective":
         if col.kind != "number":
@@ -440,7 +506,7 @@ def answer(cat: str, facts: Facts, col: Col | None, cards: list[dict], more: boo
         pct = col.missing / max(1, facts.rows) * 100
         return f"{col.name} has {col.missing:,} missing values ({pct:.1f}%). I would {_missing_action(col, pct)}."
     if col:
-        return _profile_text(col, facts.rows)
+        return _stat_text(col, wanted, facts.rows) if wanted else _profile_text(col, facts.rows)
     if cat == "scribe":
         return cards[0]["description"]
     titles = "; ".join(c["title"] for c in cards) or "nothing to report"
@@ -460,6 +526,35 @@ def _profile_text(col: Col, rows: int) -> str:
         return f"{col.name} is a date column from {s['first']} to {s['last']}; {missing}."
     common = ", ".join(f"{v!r} ({n:,})" for v, n in col.top[:3]) or "none"
     return f"{col.name} is text with {col.distinct:,} distinct values; most common: {common}; {missing}."
+
+
+def _stat_text(col: Col, wanted: tuple[str, ...], rows: int) -> str:
+    """Only the numbers the question asked for ("the highest temp is 310.07")."""
+    s, name, said = col.stats, col.name, []
+    for w in wanted:
+        if w in ("mode", "rare") and col.top:
+            value, n = col.top[0] if w == "mode" else col.top[-1]
+            sure = w == "mode" or col.distinct <= len(col.top)    # top holds only the most common values
+            said.append(f"the {'most' if w == 'mode' else 'least'} common {name} is {value!r} ({n:,} rows)"
+                        + ("" if sure else f", among its {len(col.top)} most common values"))
+        elif col.kind == "number" and s:
+            said.append({
+                "min": f"the lowest {name} is {_fmt(s['min'])}",
+                "max": f"the highest {name} is {_fmt(s['max'])}",
+                "range": f"{name} goes from {_fmt(s['min'])} to {_fmt(s['max'])}",
+                "mean": f"the mean {name} is {_fmt(s['mean'])}",
+                "median": f"the median {name} is {_fmt(s['median'])}",
+                "std": f"the standard deviation of {name} is {_fmt(s['std'])}",
+                "quartiles": f"the middle half of {name} is between {_fmt(s['q1'])} and {_fmt(s['q3'])}",
+                "sum": f"{name} adds up to {_fmt(s['sum'])}",
+            }[w])
+        elif col.kind == "date" and s and w in ("min", "max", "range"):
+            said.append({"min": f"the earliest {name} is {s['first']}", "max": f"the latest {name} is {s['last']}",
+                         "range": f"{name} runs from {s['first']} to {s['last']}"}[w])
+    if not said:                                # e.g. the highest of a text column
+        return f"{name} is not a number column, so it has no {STAT_LABEL[wanted[0]]}. " + _profile_text(col, rows)
+    text = "; ".join(said)
+    return text[0].upper() + text[1:] + "."
 
 
 def _missing_action(col: Col, pct: float) -> str:
@@ -599,7 +694,8 @@ def _profile(name: str, values: list[str]) -> Col:
         if len(parsed) >= 2:
             q1, median, q3 = statistics.quantiles(parsed, n=4, method="inclusive")
             stats = {"min": min(parsed), "max": max(parsed), "mean": statistics.fmean(parsed),
-                     "median": median, "std": statistics.stdev(parsed), "q1": q1, "q3": q3}
+                     "median": median, "std": statistics.stdev(parsed), "q1": q1, "q3": q3,
+                     "sum": sum(parsed)}
     elif kind == "date":
         iso = [v[:10] for v in present if ISO_DATE.match(v)]
         if iso:

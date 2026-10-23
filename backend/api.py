@@ -173,8 +173,9 @@ async def export_notebook(job_id: str) -> Response:
 @router.post("/chat")
 async def chat(body: ChatIn) -> dict:
     job = jobs.get(body.job_id) if body.job_id else None
-    reply = await engine.chat(job, body.message)
-    return {"reply": reply.text, "from": reply.who, "choices": reply.choices}
+    replies = await engine.chat(job, body.message)
+    return {"replies": [{"from": r.who, "reply": r.text, "choices": r.choices, "code": r.code, "followup": r.followup}
+                        for r in replies]}
 
 
 @router.get("/sample.csv")

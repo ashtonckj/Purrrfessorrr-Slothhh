@@ -100,6 +100,10 @@ export const SLOTH = {
     `mmh... that is the ${cat} cat's department... *pokes cat*`,
     `i don't know that one... the ${cat} cat does...`,
   ],
+  askingMany: ({ cats }) => [
+    `ooh... a pile of questions... ${cats} cats, wake up...`,
+    `mmh... that is work for the ${cats} cats... *pokes them*`,
+  ],
   cancelled: 'okaaay... no work then... my favourite outcome...',
   delegate: [
     'cats... work... i will supervise... from here...',

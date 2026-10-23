@@ -103,7 +103,7 @@ class LocalEngineTest(unittest.TestCase):
         engine = LocalEngine(speed=0.05)
         job = Job(id="j", file=_file(path))
         asyncio.run(engine.run(job))
-        return lambda m: asyncio.run(engine.chat(job, m))
+        return lambda m: asyncio.run(engine.chat(job, m))[0]     # the first (usually only) reply
 
     def _cafe(self):
         path = self.dir / "cafe.csv"
@@ -111,7 +111,7 @@ class LocalEngineTest(unittest.TestCase):
         engine = LocalEngine(speed=0.05)
         job = Job(id="j", file=_file(path))
         asyncio.run(engine.run(job))
-        return lambda m: asyncio.run(engine.chat(job, m))
+        return lambda m: asyncio.run(engine.chat(job, m))[0]     # the first (usually only) reply
 
     def test_chat_routes_to_the_right_cat(self):
         ask = self._cafe()
@@ -198,22 +198,84 @@ class LocalEngineTest(unittest.TestCase):
         ask("any outliers in quantity?")                   # "it" below must not mean the quantity column
         seed = ask("about the code, what seed does it use?")
         self.assertEqual(seed.who, "coder")
-        self.assertIn("random_state=42", seed.text)
+        self.assertIn("`random_state=42`", seed.text)       # short code goes inline, in backticks
+        self.assertEqual(seed.choices, [])                  # a clear answer needs no follow-up buttons
         libs = ask("which libraries does the code use?").text
         self.assertIn("pandas", libs)
         self.assertRegex(libs, r"pip install .*pandas")
         self.assertIn("scikit-learn", libs.split("pip install")[1])      # sklearn is installed as scikit-learn
         self.assertIn("LinearRegression", ask("what model does the baseline use?").text)
         self.assertIn("test_size=0.2", ask("how is the data split for training?").text)
-        self.assertIn("pd.read_csv(", ask("show me the code to load the data").text)
+        load = ask("show me the code to load the data")
+        self.assertIn("pd.read_csv(", load.code["python"])   # whole snippets go in a code box
+        self.assertNotIn("pd.read_csv(", load.text)
         self.assertIn("cafe.csv", ask("how do I run this?").text)
         self.assertIn("ipynb", ask("can I get a notebook?").text)
         self.assertIn("soon", ask("is there R code?").text)
         finder = ask("show me the code that finds outliers")
         self.assertEqual(finder.who, "detective")
-        self.assertIn("quantile", finder.text)
+        self.assertIn("quantile", finder.code["python"])
         self.assertEqual(ask("what score does the model get?").who, "coder")      # "score" here is not the health score
         self.assertTrue(ask("tell me about the code").choices)                      # a vague code question offers examples
+
+    def _cafe_all(self):
+        path = self.dir / "cafe.csv"
+        path.write_bytes(sample_csv())
+        engine = LocalEngine(speed=0.05)
+        job = Job(id="j", file=_file(path))
+        asyncio.run(engine.run(job))
+        return lambda m: asyncio.run(engine.chat(job, m))
+
+    def test_several_questions_get_several_answers(self):
+        ask = self._cafe_all()
+        replies = ask("what is the highest quantity and how many duplicate rows are there?")
+        self.assertEqual([r.who for r in replies], ["scribe", "detective"])
+        self.assertIn("The highest quantity is 250", replies[0].text)
+        self.assertIn("63 duplicate rows", replies[1].text)
+        same = ask("what is the mean rating? what is the median rating?")       # one cat, two answers
+        self.assertEqual([r.who for r in same], ["scribe", "scribe"])
+        self.assertTrue(same[0].text.startswith("*pushes up glasses*"))
+        self.assertFalse(same[1].text.startswith("*pushes up glasses*"))       # the voice line is said once
+        pair = ask("highest quantity and lowest customer_age")               # each column gets its own stat
+        self.assertEqual(len(pair), 2)
+        self.assertIn("highest quantity", pair[0].text)
+        self.assertIn("lowest customer_age", pair[1].text)
+        self.assertNotIn("lowest quantity", pair[0].text)
+
+    def test_answers_give_only_what_was_asked(self):
+        ask = self._cafe()
+        top = ask("what is the highest quantity?").text
+        self.assertIn("The highest quantity is 250", top)
+        for other in ("median", "mean", "min ", "missing"):
+            self.assertNotIn(other, top)
+        both = ask("what are the highest and lowest customer_age?").text
+        self.assertIn("lowest customer_age is 16", both)
+        self.assertIn("highest customer_age", both)
+        self.assertNotIn("median", both)
+        self.assertIn("most common store", ask("what is the most common store?").text)
+        self.assertIn("earliest date is 2025-01-03", ask("what is the earliest date?").text)
+        self.assertIn("not a number column", ask("what is the highest store?").text)
+        self.assertRegex(ask("how many rows are there?").text, r"12,063 rows\.$")
+        self.assertIn("12 columns.", ask("how many columns are there?").text)
+        asked = ask("what is the highest value?")                          # no column: the cat checks first
+        self.assertEqual(asked.choices[0], "quantity")
+        answer = ask("yes")
+        self.assertIn("The highest quantity is 250", answer.text)
+        self.assertNotIn("median", answer.text)
+
+    def test_buttons_and_askers_fit_the_question(self):
+        ask = self._cafe()
+        self.assertEqual(ask("how many duplicate rows are there?").choices, [])   # outlier columns don't fit here
+        self.assertTrue(ask("any outliers?").choices)
+        ask("show me the code to load the data")
+        self.assertEqual(ask("tell me about customer").who, "scribe")            # not the coder who spoke last
+
+    def test_answers_to_a_cats_question_are_marked_as_follow_ups(self):
+        ask = self._cafe()
+        self.assertFalse(ask("tell me about customer").followup)            # the question itself is a new request
+        self.assertTrue(ask("yes").followup)                                # the answer to it is not
+        ask("tell me about weather")                                         # no such column: a fresh question
+        self.assertFalse(ask("any outliers in quantity?").followup)
 
     def test_small_talk_and_honesty(self):
         ask = self._cafe()
