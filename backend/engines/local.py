@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from ..cats import CAT_IDS, paper_total, split_papers
 from ..files import FileInfo, Selection, cell_matcher as _matcher, cell_text, iter_rows, parse_number as _number
 from ..jobs import Job
-from . import lines
+from . import lines, talk
 from .base import Engine, Reply
 
 # Cells that count as missing (compared lower-cased). "None" is deliberately not here:
@@ -40,6 +40,7 @@ q = json.dumps  # a column or file name as a Python string literal
 # Chat: words that make a message a follow-up ("what about it?"), a request for detail, or a stat question.
 FOLLOW_UP = re.compile(r"\b(it|its|that|those|them|same)\b|^\s*(and|also|what about|how about|why)\b")
 MORE = re.compile(r"\b(more|details?|examples?|show me|which rows)\b")
+SCORE_HOW = re.compile(r"\b(how|why|calculat\w*|comput\w*|formula|mean|made|work|measure\w*|based)\b")
 STAT = re.compile(r"\b(mean|average|median|min|minimum|max|maximum|highest|lowest|biggest|smallest)\b")
 YES = re.compile(r"(yes|yeah|yep|yup|ok|okay|sure|y|please|do it|go ahead)( please)?")
 NO = re.compile(r"(no|nope|nah|n|cancel|never ?mind|forget it)")
@@ -55,14 +56,14 @@ COUNT = re.compile(r"\b(how many|count|number of|how often)\b")
 VALUES = re.compile(r"\b(list|unique|distinct|different|categories|category|kinds?|options|values|names?)\b"
                     r"|\b(what|which)\b[^?]*\b(are there|is there|exist|exists|appear|appears|are in|are included|do we have|do you have)\b")
 
+# Code questions are matched separately (talk.CODE) because they need whole words.
 TOPICS: dict[str, tuple[str, ...]] = {   # checked in this order
     "detective": ("outlier", "suspicious", "extreme", "duplicate", "dupe", "type problem", "dtype", "data type", "weird", "wrong", "strange"),
     "artist": ("chart", "plot", "graph", "visual", "histogram", "distribution", "trend", "correlat",
                "scatter", "relationship", "together"),
     "janitor": ("missing", "clean", "empty", "null", "blank", "fill", "encod", "preprocess", "impute"),
-    "coder": ("code", "python", "snippet", "model", "predict", "sklearn", "pandas", "baseline", "regression"),
     "scribe": ("summary", "summar", "explain", "describe", "overview", "column", "row", "how many",
-               "what is", "mean", "average", "median", "min", "max", "inside", "contain", "dataset"),
+               "mean", "average", "median", "min", "max", "inside", "contain", "dataset"),
 }
 
 
@@ -135,6 +136,7 @@ class Convo:
     cat: str | None = None
     col: Col | None = None
     pending: Pending | None = None
+    last: Reply | None = None         # the last reply, for "say that again"
 
 
 # ------------------------------------------------------------------ engine
@@ -199,6 +201,14 @@ class LocalEngine(Engine):
 
     async def chat(self, job: Job | None, message: str) -> Reply:
         await asyncio.sleep(0.6 * self.speed)   # sloths reply slowly
+        reply = self._chat(job, message)
+        if job is not None and job.id in self._convo:
+            self._convo[job.id].last = reply
+        return reply
+
+    def _chat(self, job: Job | None, message: str) -> Reply:
+        """Read a message in this order: an open question, small talk, health, code, what is inside the data
+        (columns, rows, values), a column or topic for one cat, and last any card that matches."""
         if job is None:
             return Reply("sloth", random.choice(lines.CHAT_NO_JOB))
         facts = self._facts.get(job.id)
@@ -206,10 +216,6 @@ class LocalEngine(Engine):
             return Reply("sloth", lines.CHAT_NOT_READY)
         convo = self._convo.setdefault(job.id, Convo())
         text = message.lower()
-        if any(w in text for w in ("health", "score")):
-            score = facts.health_score
-            mood = "happy" if score > 80 else "grumpy" if score < 40 else "meh"
-            return Reply("sloth", lines.CHAT_HEALTH.format(score=score, mood=lines.HEALTH_MOOD[mood]))
 
         # A cat asked something last turn: this message may be the answer.
         pending, convo.pending = convo.pending, None
@@ -224,24 +230,46 @@ class LocalEngine(Engine):
                 return self._reply(job, facts, convo, pending.cat, col, intent=pending.intent)
 
         col = _mentioned_column(facts, text)
+        code = talk.CODE.search(text)
+        if code and col and code.group(0) in col.name.lower():
+            code = None                        # "zip code" can be a column
+        small = talk.small_talk(text)
+        if small:
+            return Reply("sloth", small)
+        if talk.HELP.search(text) or text.strip(" ?!.") == "help":
+            return Reply("sloth", lines.CHAT_HELP.format(example=facts.cols[0].name))
+        if talk.REPEAT.search(text) and convo.last:
+            return convo.last
+        if "health" in text or ("score" in text and not code):
+            score = facts.health_score
+            if SCORE_HOW.search(text):
+                return Reply("sloth", lines.CHAT_SCORE_HOW.format(score=score))
+            mood = "happy" if score > 80 else "grumpy" if score < 40 else "meh"
+            return Reply("sloth", lines.CHAT_HEALTH.format(score=score, mood=lines.HEALTH_MOOD[mood]))
+        if code:                               # about the generated Python: seed, libraries, the model, ...
+            if not job.results:
+                return Reply("coder", lines.CHAT_BUSY["coder"])
+            who, body, choices = talk.code_answer(job.results, text)
+            return self._say(convo, who, None, body, choices)
+
         cat = next((c for c, words in TOPICS.items() if any(w in text for w in words)), None)
-        open_ended = cat in (None, "scribe")   # not a quality / chart / code question
+        open_ended = cat in (None, "scribe")   # not a quality or chart question
         intent = "values" if open_ended and (VALUES.search(text) or COUNT.search(text)) else "profile"
         if open_ended and not STAT.search(text):
             if SAMPLE.search(text):
-                return self._say(convo, None, _sample_text(facts), ["what columns are there?"])
+                return self._say(convo, "scribe", None, _sample_text(facts), ["what columns are there?"])
             if col is None and COLUMNS.search(text):
-                return self._say(convo, None, _columns_text(facts), [c.name for c in facts.cols[:MAX_CHOICES]])
+                return self._say(convo, "scribe", None, _columns_text(facts), [c.name for c in facts.cols[:MAX_CHOICES]])
             hit = _mentioned_value(facts, text, col) if COUNT.search(text) else None
             if hit:
                 c, value, n = hit
-                return self._say(convo, c, f"{value!r} appears {n:,} times in {c.name} "
-                                           f"({n / max(1, facts.rows):.1%} of {facts.rows:,} rows).")
+                return self._say(convo, "scribe", c, f"{value!r} appears {n:,} times in {c.name} "
+                                                     f"({n / max(1, facts.rows):.1%} of {facts.rows:,} rows).")
         if col is None:
             guesses = _fuzzy_columns(facts, text)
             if guesses:                        # "weather" could be weather_main or weather_description
                 return self._ask(convo, cat or convo.cat or "scribe", guesses, None, facts, intent)
-            if convo.col and FOLLOW_UP.search(text):
+            if convo.col and FOLLOW_UP.search(text) and cat != "artist":
                 col = convo.col                # "and what about it?"
         more = bool(MORE.search(text) and convo.cat)
         if cat is None and more:
@@ -250,24 +278,43 @@ class LocalEngine(Engine):
             # Only a short follow-up ("total?", "and region?") keeps the last cat; "tell me about x" is a new ask.
             short = len(text.split()) <= 3 or FOLLOW_UP.search(text)
             cat = convo.cat if short and convo.cat in ("detective", "janitor") and intent == "profile" else "scribe"
+        elif col and cat == "artist":          # "a chart of yield": the chart card about it, if there is one
+            hit = talk.find_card(job.results, text, only="artist")
+            if hit:
+                return self._card_reply(convo, facts, *hit)
+            cat = "scribe"
         elif col and cat not in ("detective", "janitor"):
             cat = "scribe"
         if col is None and STAT.search(text) and facts.measures:
             default = facts.focus or facts.measures[0]
             return self._ask(convo, "scribe", [default] + [c for c in facts.measures if c is not default], default, facts)
-        if cat is None:
+        if cat is None:                        # nothing obvious: maybe one of the cards is about it
+            hit = talk.find_card(job.results, text)
+            if hit:
+                return self._card_reply(convo, facts, *hit)
             return Reply("sloth", lines.CHAT_HELP.format(example=facts.cols[0].name))
+        if col is None and intent == "profile" and not more:
+            hit = talk.find_card(job.results, text, only=cat)
+            if hit:
+                return self._card_reply(convo, facts, *hit)
         return self._reply(job, facts, convo, cat, col, more, intent)
 
-    def _say(self, convo: Convo, col: Col | None, text: str, choices: list[str] | None = None) -> Reply:
-        """A scribe answer straight from the facts (no cards needed), remembered for follow-ups."""
-        convo.cat, convo.col = "scribe", col
-        return Reply("scribe", f"{lines.CHAT_VOICE['scribe']} {text}", choices or [])
+    def _say(self, convo: Convo, cat: str, col: Col | None, text: str, choices: list[str] | None = None) -> Reply:
+        """An answer straight from the facts or the code (no card needed), remembered for follow-ups."""
+        convo.cat, convo.col = cat, col
+        return Reply(cat, f"{lines.CHAT_VOICE[cat]} {text}", choices or [])
+
+    def _card_reply(self, convo: Convo, facts: Facts, cat: str, card: dict) -> Reply:
+        """Answer with one card: its title carries the headline number, its description says what it means."""
+        convo.cat, convo.col = cat, None
+        choices = _worst_columns(cat, facts)
+        tip = f" {lines.CHAT_TAP}" if choices and cat in ("detective", "janitor") else ""
+        return Reply(cat, f"{lines.CHAT_VOICE[cat]} {card['title']}. {card['description']}{tip}", choices)
 
     def _reply(self, job: Job, facts: Facts, convo: Convo, cat: str, col: Col | None, more: bool = False,
                intent: str = "profile") -> Reply:
         if intent == "values" and col and cat == "scribe":
-            return self._say(convo, col, _values_text(col, facts.rows))
+            return self._say(convo, "scribe", col, _values_text(col, facts.rows))
         if cat not in job.results:
             return Reply(cat, lines.CHAT_FAILED if job.finished else lines.CHAT_BUSY[cat])
         convo.cat, convo.col = cat, col

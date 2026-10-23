@@ -82,7 +82,12 @@ python3 -m venv .venv
    partial column name, an average with no column) the cat asks you to confirm,
    with tap-to-answer buttons. You can also ask what is inside: "what holidays
    are there?" (lists a column's values with counts), "what columns are there?",
-   "show me some rows", "how many Labor Day".
+   "show me some rows", "how many Labor Day". Questions about the generated
+   code are answered from the code itself ("what seed does it use?", "which
+   libraries?", "what model?", "show me the code to load the data"), the cards can
+   be asked about ("what does the histogram show?"), and the sloth also handles
+   greetings, "how is the health score calculated?", "are you an AI?" (no: the
+   cats just count, there is no language model) and "say that again".
 
 Top-right buttons: sound (off by default), day/night theme, settings.
 
@@ -139,7 +144,8 @@ backend/
   sample_data.py        the sample CSV
   engines/
     base.py             Engine interface
-    local.py            the cats: real statistics over every row
+    local.py            the cats: real statistics over every row, and the chat routing
+    talk.py             chat helpers: small talk, code questions, finding a card
     lines.py            the cats' progress lines and chat voices
 static/
   index.html, copy.js

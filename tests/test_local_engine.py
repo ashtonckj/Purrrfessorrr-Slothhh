@@ -180,6 +180,69 @@ class LocalEngineTest(unittest.TestCase):
         self.assertIn("row 1: holiday=None, temp=270", rows.text)
         self.assertEqual(ask("what types of holiday are there?").who, "scribe")   # "types" is not a type problem
 
+    def test_code_question_after_a_column_list_is_not_hijacked(self):
+        """The reported conversation: list a column's values, then ask about the code."""
+        rows = "".join(f"{w},{d},{20 + i},{100 + i * 3}\n" for i, (w, d) in enumerate(
+            [("Clear", "sky is clear"), ("Rain", "light rain"), ("Clouds", "few clouds"), ("Clear", "sunny")] * 5))
+        ask = self._chat("weather_main,weather_description,temp,traffic_volume\n" + rows)
+        vague = ask("can you list me the type of weather that exists?")
+        self.assertEqual(vague.choices[-1], "all")
+        self.assertIn("weather_main has 3 distinct values", ask("weather_main").text)
+        seed = ask("about the code, what seed does it use?")
+        self.assertEqual(seed.who, "coder")
+        self.assertIn("random_state=42", seed.text)
+        self.assertNotIn("distinct values", seed.text)
+
+    def test_code_questions_are_answered_from_the_generated_code(self):
+        ask = self._cafe()
+        ask("any outliers in quantity?")                   # "it" below must not mean the quantity column
+        seed = ask("about the code, what seed does it use?")
+        self.assertEqual(seed.who, "coder")
+        self.assertIn("random_state=42", seed.text)
+        libs = ask("which libraries does the code use?").text
+        self.assertIn("pandas", libs)
+        self.assertRegex(libs, r"pip install .*pandas")
+        self.assertIn("scikit-learn", libs.split("pip install")[1])      # sklearn is installed as scikit-learn
+        self.assertIn("LinearRegression", ask("what model does the baseline use?").text)
+        self.assertIn("test_size=0.2", ask("how is the data split for training?").text)
+        self.assertIn("pd.read_csv(", ask("show me the code to load the data").text)
+        self.assertIn("cafe.csv", ask("how do I run this?").text)
+        self.assertIn("ipynb", ask("can I get a notebook?").text)
+        self.assertIn("soon", ask("is there R code?").text)
+        finder = ask("show me the code that finds outliers")
+        self.assertEqual(finder.who, "detective")
+        self.assertIn("quantile", finder.text)
+        self.assertEqual(ask("what score does the model get?").who, "coder")      # "score" here is not the health score
+        self.assertTrue(ask("tell me about the code").choices)                      # a vague code question offers examples
+
+    def test_small_talk_and_honesty(self):
+        ask = self._cafe()
+        self.assertEqual(ask("hi").who, "sloth")
+        self.assertIn("welcome", ask("thanks!").text)
+        self.assertIn("language model", ask("are you an AI?").text)
+        self.assertIn("what columns are there?", ask("what can you do?").text)
+        self.assertIn("closes eyes", ask("bye").text)
+        self.assertEqual(ask("what is the capital of france?").who, "sloth")      # off topic: a hint, not a data summary
+        self.assertEqual(ask("hi, list the columns").who, "scribe")               # a greeting does not swallow a real question
+
+    def test_health_score_can_be_explained_and_repeated(self):
+        ask = self._cafe()
+        self.assertIn("starts at 100", ask("how is the health score calculated?").text)
+        self.assertIn("health score is", ask("what's the health score?").text)
+        first = ask("any outliers in quantity?")
+        self.assertEqual(ask("say that again").text, first.text)
+
+    def test_cards_answer_questions_about_themselves(self):
+        ask = self._cafe()
+        histogram = ask("what does the histogram show?")
+        self.assertEqual(histogram.who, "artist")
+        self.assertIn("histogram", histogram.text)
+        dupes = ask("how many duplicate rows are there?")
+        self.assertEqual(dupes.who, "detective")
+        self.assertIn("63 duplicate rows", dupes.text)
+        self.assertIn("Full cleaning recipe", ask("tell me about the cleaning recipe").text)
+        self.assertIn("scatter", ask("is there a scatter plot?").text.lower())
+
     def test_listing_values_after_a_vague_column_asks_first(self):
         ask = self._chat("weather_main,weather_description\nClear,sky\nClear,sunny\nRain,wet\n")
         self.assertEqual(ask("list the weather").choices[-1], "all")

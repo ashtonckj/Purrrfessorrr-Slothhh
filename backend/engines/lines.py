@@ -69,6 +69,26 @@ CHAT_NO_JOB: list[str] = [
     "hi... drop a csv in the chat first... then i delegate... it's my favourite part...",
     "no file yet... no work yet... perfect... but drop a csv if you must...",
 ]
+CHAT_GREET: list[str] = [
+    "oh... hi... drop a csv, or ask me about the data you already gave me...",
+    "hello... i was almost asleep... ask me anything about your file...",
+]
+CHAT_THANKS: list[str] = [
+    "you're welcome... the cats did the work... i napped...",
+    "anytime... *yawns*",
+]
+CHAT_BYE = "bye... *closes eyes*... your results will be right here..."
+CHAT_WHO = (
+    "i'm a sloth... mostly... the five cats read every row with plain python on this computer and count things. "
+    "there is no language model or internet behind us, so i answer from the results... "
+    "ask about outliers, missing values, charts, code, columns, or what values a column has..."
+)
+# Keep in step with the caps in analyse() (backend/engines/local.py).
+CHAT_SCORE_HOW = (
+    "the data health score is {score}/100... it starts at 100 and loses points for problems, each capped so "
+    "one thing can't sink it: up to 40 for empty cells, 25 for duplicate rows, 25 for rows with extreme values "
+    "and 20 for number columns hiding text..."
+)
 CHAT_NEVERMIND = "okay... never mind... *goes back to napping*"
 CHAT_TAP = "tap a column for details."
 CHAT_ASK_ONE = "did you mean {name}? say yes, or name another column."
