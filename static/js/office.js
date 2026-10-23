@@ -11,8 +11,6 @@ import { el, prefersReducedMotion, say } from './ui.js';
 
 const CAT_IDS = ['detective', 'artist', 'scribe', 'coder', 'janitor'];
 const SEGMENTS = 20;
-const MAX_PAPERS = 30;
-const ROWS_PER_PAPER = 1000;
 
 let room;
 let scale = 2;               // cats and props
@@ -60,7 +58,6 @@ function buildBoss() {
     el('div', { class: 'speech__fill' }, boss.speechText, boss.speechScore));
   boss.stack = sprite('paper_stack');  // drawn at cat scale: it's a prop, not the boss
   boss.stackWrap = el('span', { class: 'boss__stack', hidden: true }, boss.stack);
-  boss.capped = el('div', { class: 'capped-note', hidden: true });
 
   // wall decorations (purely visual)
   room.append(el('div', { class: 'decor decor--chart', 'aria-hidden': 'true' },
@@ -70,7 +67,7 @@ function buildBoss() {
   room.append(el('div', { class: 'boss' },
     el('span', { class: 'boss__branch' }, sprite('branch', {}, true)),
     el('div', { class: 'boss__stage' }, boss.sloth, boss.zzzWrap, boss.speech),
-    el('div', { class: 'boss__desk' }, sprite('desk_sloth', {}, true), boss.stackWrap, boss.capped)));
+    el('div', { class: 'boss__desk' }, sprite('desk_sloth', {}, true), boss.stackWrap)));
   speak(say(OFFICE.bubble.idle));
 }
 
@@ -150,12 +147,9 @@ function speak(text, score = null, mood = 'idle') {
 
 // ------------------------------------------------------------- job events
 
-function onStart({ file }) {
+function onStart() {
   for (const cat of CAT_IDS) resetStation(cat);
-  const total = Math.max(1, Math.ceil(file.rows / ROWS_PER_PAPER));
   boss.stackWrap.hidden = false;
-  boss.capped.hidden = total <= MAX_PAPERS;
-  boss.capped.textContent = say(OFFICE.capped, { total });
   speak(say(OFFICE.bubble.start));
   for (const cat of CAT_IDS) stations[cat].msg.textContent = OFFICE.waiting;
 }

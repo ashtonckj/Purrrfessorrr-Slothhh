@@ -102,8 +102,7 @@ export const SLOTH = {
     'okaaay... passing the jobs to the cats...\nwake me when it is done...',
     'time to delegate... my favourite sport...',
   ],
-  papers: ({ papers }) => `${papers} papers... one for each of you... roughly...`,
-  papersCapped: ({ total }) => `that's ${total} lots of papers... i only gave them the first 30... the rest is... a problem for later...`,
+  papers: ({ papers }) => `${papers} piles of papers... every row is in there... the cats get all of it...`,
   again: [
     'another file... okaaay... cats... again...',
     'more work... not for me though...',
@@ -152,7 +151,6 @@ export const OFFICE = {
     mood: ({ score }) => (score > 80 ? 'tidy... nice...' : score < 40 ? 'ugh... messy...' : 'meh... okay...'),
   },
   sign: 'NAP\nMORE',
-  capped: ({ total }) => `${total} lots of papers, the sloth only gave you the first 30`,
   waiting: 'waiting for papers...',
   ready: 'papers received',
   done: 'done!',

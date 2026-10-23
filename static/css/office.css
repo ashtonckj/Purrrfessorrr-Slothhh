@@ -114,22 +114,6 @@
 }
 .boss__stack[hidden] { display: none; }
 
-.capped-note {
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 10px);
-  margin-left: -110px;
-  width: 220px;
-  text-align: center;
-  padding: 6px 8px;
-  font-size: var(--fs-xs);
-  line-height: 1.5;
-  background: var(--yellow);
-  color: var(--ink);
-  box-shadow: 0 0 0 2px var(--ink), 3px 3px 0 2px var(--ink);
-  transform: rotate(-2deg);
-}
-.capped-note[hidden] { display: none; }
 
 /* speech bubble to the right of the sloth */
 .speech {

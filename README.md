@@ -64,7 +64,7 @@ python3 -m venv .venv
 1. Drag a `.csv`, `.tsv` or `.xlsx` onto the chat (or click the paperclip).
    No data at hand? Settings (gear icon) > **download sample**.
 2. The sloth replies, then papers fly to the five desks: one paper per 1,000
-   rows, capped at 30.
+   rows, capped at 30 on screen (the cats still read every row).
 3. Watch the progress bars. When a cat finishes, click it (or its **Results**
    button) to open the results drawer: charts, data previews, code, downloads.
 4. When everyone is done the sloth shows a **data health score** (0-100):

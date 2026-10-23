@@ -46,8 +46,7 @@ class MockEngine(Engine):
         rng = random.Random(f"{info.filename}:{info.rows}")
         peek = await asyncio.to_thread(_peek, info)
 
-        total, _capped = paper_total(info.rows)
-        for cat, count in split_papers(total).items():
+        for cat, count in split_papers(paper_total(info.rows)).items():
             await job.emit("delegated", cat=cat, paper_count=count)
 
         # Give the frontend time to fly the papers to the desks.

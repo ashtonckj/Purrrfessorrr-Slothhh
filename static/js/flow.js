@@ -10,8 +10,6 @@ import { CAT_ICONS, CATS, NAMES, SLOTH, UI } from '../copy.js';
 import { formatNumber, prefersReducedMotion, say, sleep } from './ui.js';
 
 const ACCEPTED = ['.csv', '.tsv', '.xlsx'];
-const MAX_PAPERS = 30;
-const ROWS_PER_PAPER = 1000;
 
 const state = {
   config: { max_upload_mb: 200 },
@@ -127,10 +125,10 @@ async function runFile(file) {
   state.jobId = jobId;
   chat.setStatus('delegating');
   emit('job:start', { jobId, file: info });
-  listen(jobId, info);
+  listen(jobId);
 }
 
-function listen(jobId, info) {
+function listen(jobId) {
   state.closeStream?.();
   const delegated = {};
 
@@ -149,8 +147,7 @@ function listen(jobId, info) {
       delegated[data.cat] = data.paper_count;
       if (Object.keys(delegated).length === 5) {
         const papers = Object.values(delegated).reduce((a, b) => a + b, 0);
-        const total = Math.ceil(info.rows / ROWS_PER_PAPER);
-        await slothSays(total > MAX_PAPERS ? say(SLOTH.papersCapped, { total }) : say(SLOTH.papers, { papers }));
+        await slothSays(say(SLOTH.papers, { papers }));
         chat.setStatus('napping');
         emit('sloth:mood', { mood: 'sleep' });
       }

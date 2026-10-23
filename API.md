@@ -31,7 +31,7 @@ Errors use FastAPI's default shape: HTTP status + `{ "detail": "message" }`.
 
 | event | data | when |
 |---|---|---|
-| `delegated` | `{ cat, paper_count }` | once per cat, right after `/analyze`. Papers on the table = ceil(rows / 1000), capped at 30, split so every cat gets at least 1. |
+| `delegated` | `{ cat, paper_count }` | once per cat, right after `/analyze`. Papers on the table = ceil(rows / 1000), capped at 30 (animation only: every row is analysed), split so every cat gets at least 1. |
 | `progress` | `{ cat, percent, message }` | many times per cat, 0 to 100. Cats run in parallel. |
 | `result` | `{ cat, cards: [Card] }` | when a cat finishes |
 | `error` | `{ cat, message }` | a cat gave up (`cat` is `null` if the whole job failed). Other cats keep going. |
