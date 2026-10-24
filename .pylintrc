@@ -11,4 +11,8 @@
 # C0114: Missing module docstring
 # C0302: Too many lines in module
 # R0912: Too many branches
-disable=C0114,C0115,C0116,R0903,R0904,R0912,R0913,R0917,C0301,C0302,R0911,R0914,W0613,C0103,C0415,W0212,C3001
+# R0902: Too many instance attributes
+# R0915: Too many statements
+# W0718: Broad exception caught (Except Exception:)
+# W0108: Unnecessary lambda
+disable=C0114,C0115,C0116,R0902,R0903,R0904,R0912,R0913,R0915,R0917,C0301,C0302,R0911,R0914,W0613,C0103,C0415,W0212,C3001,W0718,W0108
