@@ -22,6 +22,7 @@
   flex-direction: column;
   justify-content: space-between;
   background: var(--wall);
+  container-type: inline-size;
 }
 
 :root[data-theme="night"] .room {
@@ -57,30 +58,37 @@
   z-index: 0;
   box-shadow: 0 0 0 3px var(--ink), 4px 4px 0 3px var(--shadow);
 }
-.decor--chart {
-  left: 6%;
-  top: 22%;
-  display: flex;
-  align-items: flex-end;
-  gap: 5px;
-  width: 92px;
-  height: 64px;
-  padding: 8px;
-  background: var(--white);
+
+.decor--noticeboard {
+  position: absolute;
+  left: 2%;
+  top: 14%;
+  width: clamp(100px, 23cqw, 220px);
+  height: auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  transform: rotate(-2deg);
+  z-index: 2;
+  pointer-events: none;
 }
-.decor--chart span { flex: 1; background: var(--leaf); }
-.decor--chart span:nth-child(4) { background: var(--pink); }
-.decor--sign {
-  right: 7%;
-  top: 18%;
-  padding: 10px 12px;
-  font-size: var(--fs-s);
-  line-height: 1.6;
-  white-space: pre;
-  text-align: center;
-  color: var(--white);
-  background: var(--forest);
+
+.decor--sign-img {
+  position: absolute;
+  right: 5%;
+  top: 16%;
+  width: clamp(85px, 17cqw, 160px);
+  height: auto;
+  object-fit: contain;
+  image-rendering: pixelated;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   transform: rotate(3deg);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .boss__branch { margin-bottom: calc(var(--ss) * -6px); }
