@@ -85,7 +85,7 @@
 
 /* ----------------------------------------------------------------- card */
 
-.card__frame { flex: none; }
+.card__frame { flex: none; margin-top: 8px; }
 
 .card { background: var(--surface); }
 
