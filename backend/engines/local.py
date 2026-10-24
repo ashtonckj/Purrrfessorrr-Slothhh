@@ -32,6 +32,7 @@ OTHER_DATE = re.compile(r"\d{1,2}[/.]\d{1,2}[/.]\d{2,4}$")
 CORR_SAMPLE = 5000   # rows used to rank column pairs by correlation
 SCATTER_POINTS = 300
 MAX_BARS = 10
+HEAT_MAX = 10        # number columns drawn in the correlation heatmap
 HIST_BINS = 10       # the baseline histogram; the user can ask for 2 to MAX_HIST_BINS
 MAX_HIST_BINS = 100
 TOP_VALUES = 50      # most common values kept per column, for chat answers
@@ -1063,7 +1064,7 @@ plt.show()"""), "r": rcode.by_category(g.name, a.name if a else None)},
             "description": f"A line chart of total {a.name} per month of {d}, "
                            f"from {f.trend[0][0]} to {f.trend[-1][0]}"
                            f"{' (last 36 months)' if len(f.trend) == 36 else ''}.",
-            "chart": {"type": "line", "title": f"{a.name} per month", "x_label": "month", "y_label": a.name,
+            "chart": {"type": "line", "title": f"{a.name} per month", "x_label": f"{d} (by month)", "y_label": a.name,
                       "labels": [m for m, _ in f.trend], "values": [round(v, 2) for _, v in f.trend]},
             "table": {"columns": ["month", a.name], "rows": [[m, round(v, 2)] for m, v in f.trend]},
             "code": {"python": f"""df[{q(d)}] = pd.to_datetime(df[{q(d)}], errors="coerce")
@@ -1103,7 +1104,51 @@ plt.show()""", "r": rcode.scatter(x.name, y.name)},
             "code": {"python": f"""nums = df[[{', '.join(q(n) for n in names)}]].apply(pd.to_numeric, errors="coerce")
 print(nums.corr().round(2))""", "r": rcode.correlations(names)},
         })
+    heat = _correlation_matrix(f)
+    if heat:
+        names, matrix = heat
+        left_out = len(f.measures) - len(names)
+        cards.append({
+            "id": "artist-heatmap",
+            "title": "Correlation heatmap",
+            "description": f"Pearson r for each pair of {len(names)} number columns: blue means they move in opposite "
+                           f"directions, red means they rise and fall together, pale means no straight-line link. "
+                           f"Each pair uses only the rows where both values exist"
+                           f"{' (on a sample of rows)' if f.pair and f.pair[4] else ''}. "
+                           f"{f'{left_out} other number column(s) are left out: ID-like, yes/no, constant, too few values or beyond the first {HEAT_MAX}. ' if left_out > 0 else ''}"
+                           f"Correlation does not prove causation: a strong r is a pattern worth checking, not proof "
+                           f"that one column causes the other.",
+            "chart": {"type": "heatmap", "title": "correlation between number columns", "x_label": "", "y_label": "",
+                      "labels": names, "matrix": matrix},
+            "table": {"columns": ["column", *names],
+                      "rows": [[n, *["" if r is None else r for r in row]] for n, row in zip(names, matrix)]},
+            "code": {"python": f"""nums = df[[{', '.join(q(n) for n in names)}]].apply(pd.to_numeric, errors="coerce")
+corr = nums.corr()                         # each pair uses only the rows where both values exist
+plt.imshow(corr, cmap="coolwarm", vmin=-1, vmax=1)
+plt.xticks(range(len(corr)), corr.columns, rotation=45, ha="right")
+plt.yticks(range(len(corr)), corr.columns)
+plt.colorbar(label="Pearson r")
+plt.title("Correlation does not prove causation")
+plt.tight_layout()
+plt.show()""", "r": rcode.heatmap(names)},
+        })
     return cards
+
+
+def _correlation_matrix(f: Facts) -> tuple[list[str], list[list[float | None]]] | None:
+    """The pair correlations `_best_pair` already worked out, as a square matrix in file order (None: r could not be computed).
+
+    Needs three or more columns, like the correlations card. Constant columns, columns with too few values
+    and yes/no columns never reach `f.corr`, so they are left out rather than drawn as empty rows.
+    """
+    seen = {n for a, b, _ in f.corr for n in (a, b)}
+    names = [c.name for c in f.measures if c.name in seen][:HEAT_MAX]
+    if len(names) < 3:
+        return None
+    r = {}
+    for a, b, v in f.corr:
+        r[a, b] = r[b, a] = round(max(-1.0, min(1.0, v)), 3) + 0.0     # + 0.0: no "-0.0"
+    return names, [[1.0 if a == b else r.get((a, b)) for b in names] for a in names]
 
 
 def hist_spec(column: str, bins: int = HIST_BINS) -> dict:

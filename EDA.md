@@ -22,10 +22,11 @@ Missing means empty, `NA`, `N/A`, `NaN`, `null`, `#N/A` or `<NA>` (but not `None
 | Distribution | `artist-distribution` | a measure exists | histogram of the target (if it is a number) or the first measure; 10 equal-width bins from min to max |
 | Categories and cardinality | `scribe-categories` | at least one text column | distinct count, top 3 values; notes single-value, near-unique (ID or free text?) and over-50-category columns |
 | Category comparison | `artist-by-category` | a text column with 2-50 categories | mean of the main measure per category (or row counts), top 10 |
-| Trend | `artist-trend` | a date column and a measure | monthly sum of the main measure, last 36 months |
+| Trend | `artist-trend` | a date column and a measure | monthly sum of the main measure, last 36 months, oldest first; only `YYYY-MM-DD` cells are charted; the x axis is titled with the date column and labels about every 34 px |
 | Outliers | `detective-outliers` | always (counted for measures with more than 2 distinct values) | **potential** outliers: outside Q1 - 1.5 IQR .. Q3 + 1.5 IQR (Tukey's fences). Not confirmed errors |
 | Strongest relationship | `artist-scatter` | two measures with more than 2 distinct values | Pearson r for every pair (on up to 5,000 sampled rows); scatter of the strongest |
 | All correlations | `artist-correlations` | three or more such measures | every pair's r, strongest first. A pattern, not causation |
+| Correlation heatmap | `artist-heatmap` | three or more such measures | the same pairwise r as above as a colour grid (blue negative, red positive), at most 10 columns in file order; each pair uses only rows where both values exist; a pair with no r (constant or too few shared rows) is left blank. Not causation |
 | Target analysis | `coder-baseline` and the focus of the charts | a target is picked (or a measure exists) | the target is charted first; baseline model: linear regression for numbers, logistic for text |
 | Encoding plan | `janitor-encoding` | always | one-hot up to 12 categories, frequency/target encoding above |
 | Cleaning recipe | `janitor-recipe` | always | dedupe, fix types, fill gaps, trim text, in that order, as code to run yourself |

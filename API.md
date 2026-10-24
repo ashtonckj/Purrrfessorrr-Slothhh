@@ -55,7 +55,7 @@ progress, so the UI can fly papers to the desks; the file is read meanwhile.
   "description": "Plain-text paragraph.",
   "severity": "ok | warn | bad",
   "chart": {
-    "type": "bar | hbar | line | hist | scatter",
+    "type": "bar | hbar | line | hist | scatter | heatmap",
     "title": "...", "x_label": "...", "y_label": "...",
     "labels": ["a", "b"], "values": [1, 2],
     "points": [[x, y], ...]
@@ -67,7 +67,7 @@ progress, so the UI can fly papers to the desks; the file is read meanwhile.
 
 Only `id`, `title` and `description` are required. `chart` is a spec the
 frontend draws on a canvas (so "Download chart (PNG)" works offline);
-`points` is used by `scatter`, `labels`/`values` by the rest. `table` feeds
+`points` is used by `scatter`, `labels`/`matrix` (square, `matrix[i][j]` = r or `null`) by `heatmap`, `labels`/`values` by the rest. `table` feeds
 "Download data (CSV)". Every snippet has a Python and an R version (`r` may be null where there is nothing to say).
 
 ## Swapping in another engine

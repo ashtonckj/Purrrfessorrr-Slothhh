@@ -17,10 +17,11 @@ Card shape (every key except id/title/description is optional):
       "id": "detective-outliers",
       "title": "...", "description": "...",
       "severity": "ok" | "warn" | "bad",
-      "chart": {"type": "bar"|"hbar"|"line"|"hist"|"scatter",
+      "chart": {"type": "bar"|"hbar"|"line"|"hist"|"scatter"|"heatmap",
                 "title", "x_label", "y_label",
                 "labels": [...], "values": [...],      # bar / hbar / line / hist
-                "points": [[x, y], ...]},              # scatter
+                "points": [[x, y], ...],               # scatter
+                "matrix": [[r|None, ...], ...]},       # heatmap: square, same order as labels
       "table": {"columns": [...], "rows": [[...], ...]},   # "Download data (CSV)"
       "code":  {"python": "...", "r": "..."}               # "Copy code"; r may be null
     }

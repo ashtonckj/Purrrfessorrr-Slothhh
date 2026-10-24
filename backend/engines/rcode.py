@@ -98,6 +98,12 @@ def correlations(cols: list[str]) -> str:
 print(round(cor(nums, use = "pairwise.complete.obs"), 2))"""
 
 
+def heatmap(cols: list[str]) -> str:
+    return f"""nums <- sapply(df[{vec(cols)}], function(x) suppressWarnings(as.numeric(x)))
+heatmap(cor(nums, use = "pairwise.complete.obs"), Rowv = NA, Colv = NA, symm = TRUE, scale = "none",
+        main = "Correlation does not prove causation")"""
+
+
 def by_category(group: str, num: str | None) -> str:
     if num is None:
         return f"""barplot(sort(table(df[[{q(group)}]]), decreasing = TRUE), las = 2)"""
@@ -108,7 +114,7 @@ barplot(means, las = 2, ylab = {q("mean " + num)})"""
 def trend(date: str, num: str) -> str:
     return f"""when <- as.Date(substr(as.character(df[[{q(date)}]]), 1, 10))
 monthly <- tapply({number(num)}, format(when, "%Y-%m"), sum, na.rm = TRUE)
-plot(monthly, type = "b", xaxt = "n", xlab = "month", ylab = {q(num)})
+plot(monthly, type = "b", xaxt = "n", xlab = {q(date + " (by month)")}, ylab = {q(num)})
 axis(1, at = seq_along(monthly), labels = names(monthly), las = 2)"""
 
 
