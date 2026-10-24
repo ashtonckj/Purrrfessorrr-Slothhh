@@ -17,7 +17,9 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field, replace
 
 from ..cats import CAT_IDS, paper_total, split_papers
-from ..files import FileInfo, Selection, cell_matcher as _matcher, cell_text, iter_rows, parse_number as _number
+from ..files import FileInfo, Selection, cell_text, iter_rows
+from ..files import cell_matcher as _matcher
+from ..files import parse_number as _number
 from ..jobs import Job
 from . import lines, rcode, talk
 from .base import Engine, Reply
@@ -157,6 +159,7 @@ class Facts:
     pair: tuple[Col, Col, float, list[list[float]], bool] | None  # a, b, r, points, sampled
     corr: list[tuple[str, str, float]]                # every measure pair (a, b, r), strongest first
     hist: tuple[list[str], list[int]] | None
+    box: dict | None
     health_score: int
     head: list[list[str]]             # the first kept rows, in the order of `cols`
 
@@ -868,6 +871,7 @@ def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
     score = (100 - min(40, missing_total / (rows_ * max(1, width)) * 300) - min(25, len(duplicates) / rows_ * 500)
              - min(25, len(flagged) / rows_ * 200) - min(20, 5 * len(type_issues)))
 
+    box = boxplot_card(focus) if focus else None
     for c in cols:
         c.numbers = []                         # facts are kept for chat; the raw values are not
     return Facts(
@@ -875,7 +879,7 @@ def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
         excluded=[(info.columns[j], v) for j, v in sel.exclude], excluded_rows=excluded_rows, measures=measures, groups=groups, date_col=date_col,
         target=target_col, focus=focus, missing_total=missing_total, duplicates=duplicates,
         outlier_counts=outlier_counts, outlier_examples=examples[:20], outlier_rows=len(flagged),
-        type_issues=type_issues, mixed_dates=mixed, by_group=by_group, trend=trend, pair=pair, corr=corr, hist=hist,
+        type_issues=type_issues, mixed_dates=mixed, by_group=by_group, trend=trend, pair=pair, corr=corr, hist=hist, box=box,
         health_score=int(round(max(0, min(100, score)))), head=[[c[:40] for c in r] for r in rows[:5]],
     )
 
@@ -1033,11 +1037,50 @@ df[{q(bad)}] = pd.to_numeric(df[{q(bad)}].astype(str).str.replace(r"[$,]", "", r
     return cards
 
 
+def boxplot_card(col: Col) -> dict | None:
+    """One focus-column box plot, using the same inclusive quartiles as data quality."""
+    xs = sorted(x for x in col.numbers if x is not None)
+    if len(xs) < 2 or not col.stats:
+        return None
+    q1, median, q3 = (col.stats[k] for k in ("q1", "median", "q3"))
+    iqr = q3 - q1
+    low, high = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+    inside = [x for x in xs if low <= x <= high]
+    if not inside:
+        return None
+    outliers = [x for x in xs if x < low or x > high]
+    name = col.name
+    return {
+        "id": "artist-boxplot",
+        "title": f"Box plot of {name}",
+        "description": f"Median, inclusive quartiles and 1.5 × IQR whiskers for {name}; "
+                       f"{len(outliers)} outlier(s), {col.missing} missing value(s).",
+        "chart": {"type": "box", "title": f"Box plot of {name}", "x_label": name,
+                  "min": inside[0], "q1": q1, "median": median, "q3": q3,
+                  "max": inside[-1], "outliers": outliers},
+        "table": {"columns": ["statistic", "value"],
+                  "rows": [["lower whisker", inside[0]], ["Q1", q1], ["median", median],
+                           ["Q3", q3], ["upper whisker", inside[-1]],
+                           ["outlier count", len(outliers)]]},
+        "code": {"python": f"""import matplotlib.pyplot as plt
+import pandas as pd
+
+x = pd.to_numeric(df[{q(name)}], errors="coerce").dropna()
+if len(x) >= 2:
+    plt.boxplot(x, whis=1.5)
+    plt.xticks([1], [{q(name)}])
+    plt.title({q('Box plot of ' + name)})
+    plt.show()"""},
+    }
+
+
 def artist_cards(f: Facts) -> list[dict]:
     cards = []
     a = f.focus
     if a and f.hist:
         cards.append(histogram_card(hist_spec(a.name), f.hist, a.stats))
+    if f.box:
+        cards.append(f.box)
     if f.by_group:
         g, top = f.by_group
         what = f"mean {a.name}" if a else "rows"
