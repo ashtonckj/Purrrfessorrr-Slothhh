@@ -102,7 +102,7 @@ class ChartEditTest(unittest.TestCase):
 
 def _zip_text(job) -> str:
     with zipfile.ZipFile(io.BytesIO(build_zip(job))) as zf:
-        return "\n".join(zf.read(n).decode() for n in zf.namelist() if n.endswith(".py") or n.endswith(".R"))
+        return "\n".join(zf.read(n).decode() for n in zf.namelist() if n.endswith((".py", ".R")))
 
 
 class NormaliseTest(unittest.TestCase):

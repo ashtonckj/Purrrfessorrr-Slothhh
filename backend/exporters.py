@@ -50,8 +50,8 @@ def build_zip(job: Job) -> bytes:
 
 def build_r_script(job: Job) -> str:
     """Every R snippet in one script, in the same order as the notebook."""
-    parts = [f"# R version of the cats' snippets for {job.file.filename}.\n"
-             "# Run it from the folder that holds the data file, top to bottom.\n"]
+    parts = [(f"# R version of the cats' snippets for {job.file.filename}.\n"
+             "# Run it from the folder that holds the data file, top to bottom.\n")]
     for cat in CAT_IDS:
         for card in job.results.get(cat, []):
             code = (card.get("code") or {}).get("r")

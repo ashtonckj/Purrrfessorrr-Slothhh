@@ -429,9 +429,9 @@ def _context(job: Job, facts: Facts, convo: Convo, cat: str, text: str) -> str:
     """The FACTS Gemma gets: a summary of the file, the task, the columns asked about (or all, briefly), the
     relevant cards and what the generated code imports and does. Never the rows themselves."""
     target = facts.target or (facts.measures[-1] if facts.measures else None)
-    parts = [f"File {facts.filename}: {facts.rows} rows, {len(facts.cols)} columns; {facts.missing_total} empty cells, "
+    parts = [(f"File {facts.filename}: {facts.rows} rows, {len(facts.cols)} columns; {facts.missing_total} empty cells, "
              f"{len(facts.duplicates)} duplicate rows, {facts.outlier_rows} rows with potential outliers (IQR rule); "
-             f"data health {facts.health_score}/100."]
+             f"data health {facts.health_score}/100.")]
     if target:
         task = "regression (predicting a number)" if target.kind == "number" else "classification (predicting a category)"
         who = "picked by the user" if facts.target else "not picked by the user; the generated baseline uses it by default"
@@ -462,7 +462,7 @@ def _context(job: Job, facts: Facts, convo: Convo, cat: str, text: str) -> str:
         parts += [f"Suggested, not run: {suggestion} (evidence: {evidence})" for evidence, suggestion in look["table"]["rows"]]
     users = talk.users_of(job.results)
     if users:
-        found, pip = talk.imports(job.results)
+        _found, pip = talk.imports(job.results)
         parts.append("Generated Python code imports: " + "; ".join(
             f"{m} (in {', '.join(t[:3])})" for m, t in users.items()) +
             f". Install with: pip install {' '.join(pip)}. Every snippet uses pandas' df from 'Load and peek'. "

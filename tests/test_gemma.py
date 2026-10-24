@@ -211,7 +211,7 @@ class GemmaChatTest(unittest.TestCase):
         return engine, job, llm, lambda m: asyncio.run(engine.chat(job, m))
 
     def test_why_questions_are_explained_from_the_facts(self):
-        engine, job, llm, ask = self.engine(lambda m, s: "Pandas reads the table into a DataFrame so you can filter it.")
+        _engine, _job, llm, ask = self.engine(lambda m, s: "Pandas reads the table into a DataFrame so you can filter it.")
         reply = ask("why do I need pandas?")
         self.assertEqual([r.who for r in reply], ["coder"])
         self.assertIn("DataFrame", reply[0].text)
@@ -237,7 +237,7 @@ class GemmaChatTest(unittest.TestCase):
         self.assertFalse(any("napping" in r.text for r in second))
 
     def test_a_lookup_is_answered_and_says_how_it_was_read(self):
-        engine, job, llm, ask = self.engine(lambda m, s: json.dumps(
+        engine, _job, llm, ask = self.engine(lambda m, s: json.dumps(
             {"tool": "stat", "column": "customer_age", "stat": "min", "bins": 0}))
         reply = ask("zap me the tiniest age")                               # the rules don't read this one
         self.assertIsNotNone(llm.prompts[-1][1])                            # asked for JSON with a schema
@@ -245,7 +245,7 @@ class GemmaChatTest(unittest.TestCase):
         self.assertIn(f"The lowest customer_age is {engine._facts['j'].cols[8].stats['min']:.0f}", reply[0].text)
 
     def test_a_chart_change_is_asked_before_it_is_made(self):
-        engine, job, llm, ask = self.engine(lambda m, s: json.dumps(
+        _engine, _job, _llm, ask = self.engine(lambda m, s: json.dumps(
             {"tool": "histogram", "column": "", "stat": "", "bins": 15}))
         asked = ask("make it chunkier with 15 slices")
         self.assertEqual(asked[0].choices, ["yes", "no"])
@@ -273,7 +273,7 @@ class GemmaChatTest(unittest.TestCase):
         self.assertIn("No file", llm.prompts[0][0][0]["content"])
 
     def test_history_stays_with_its_own_file(self):
-        engine, job, llm, ask = self.engine(lambda m, s: "Because of the gaps.")
+        engine, _job, llm, ask = self.engine(lambda m, s: "Because of the gaps.")
         ask("tell me about rating")
         other = Job(id="k", file=_cafe(self.dir))
         asyncio.run(engine.run(other))

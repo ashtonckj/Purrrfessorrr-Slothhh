@@ -880,7 +880,7 @@ def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
         target=target_col, focus=focus, missing_total=missing_total, duplicates=duplicates,
         outlier_counts=outlier_counts, outlier_examples=examples[:20], outlier_rows=len(flagged),
         type_issues=type_issues, mixed_dates=mixed, by_group=by_group, trend=trend, pair=pair, corr=corr, hist=hist, box=box,
-        health_score=int(round(max(0, min(100, score)))), head=[[c[:40] for c in r] for r in rows[:5]],
+        health_score=round(max(0, min(100, score))), head=[[c[:40] for c in r] for r in rows[:5]],
     )
 
 
@@ -1373,8 +1373,8 @@ def _closer_look(f: Facts) -> list[dict]:
         pct = c.missing / rows
         if 0.05 <= pct <= 0.4:
             found.append([f"{c.name}: {pct:.0%} empty",
-                          f"compare rows where {c.name} is empty with the rest before filling: gaps that follow a pattern "
-                          "bias the median"])
+                          (f"compare rows where {c.name} is empty with the rest before filling: gaps that follow a pattern "
+                          "bias the median")])
     if f.target and f.target.kind == "text" and f.target.top:
         share = f.target.top[0][1] / max(1, rows - f.target.missing)
         if share >= 0.8:
