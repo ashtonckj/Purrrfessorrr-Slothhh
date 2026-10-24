@@ -387,8 +387,8 @@
     },
     "nap_sign": {
       "file": "sprites/props/nap_sign.png",
-      "frameWidth": 124,
-      "frameHeight": 124,
+      "frameWidth": 69,
+      "frameHeight": 65,
       "frameCount": 1,
       "fps": 1,
       "group": "props",
@@ -398,8 +398,8 @@
     },
     "noticeboard": {
       "file": "sprites/props/noticeboard.png",
-      "frameWidth": 1448,
-      "frameHeight": 1086,
+      "frameWidth": 309,
+      "frameHeight": 204,
       "frameCount": 1,
       "fps": 1,
       "group": "props",
