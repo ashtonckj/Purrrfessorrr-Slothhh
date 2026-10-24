@@ -175,13 +175,13 @@ export function renderCard(cat, card, openByDefault) {
   }
   if (card.id === 'artist-scatter' && card.chart?.type === 'scatter' && card.scatter_columns?.length) {
     const columns = card.scatter_columns;
-    const selector = (axis, selected) => el('select', { 'aria-label': `Scatter ${axis} column` },
+    const selector = (axis, selected) => el('select', { class: 'picker__select', 'aria-label': `Scatter ${axis} column` },
       columns.map(name => el('option', { value: name, text: name, selected: name === selected })));
     const x = selector('X', card.chart.x_label);
     const y = selector('Y', card.chart.y_label);
     const message = el('p', { role: 'alert', 'aria-live': 'polite' });
     const controls = el('div', { class: 'card__scatter-controls' },
-      el('label', {}, 'X ', x), el('label', {}, 'Y ', y), message);
+      el('label', {}, 'X ', x), el('label', {}, '     Y ', y), message);
     const change = async () => {
       const previousX = card.chart.x_label, previousY = card.chart.y_label;
       x.disabled = y.disabled = true;

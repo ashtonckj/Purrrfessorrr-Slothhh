@@ -77,7 +77,7 @@ export function drawChart(canvas, spec) {
   ctx.textBaseline = 'top';
   ctx.fillText(fit(spec.title ?? '', Math.floor((width - 24) / (t.charW + 1))), 12, 10);
 
-  const draw = { bar: drawBars, hist: drawBars, hbar: drawHBars, line: drawLine, scatter: drawScatter, heatmap: drawHeatmap }[spec.type];
+  const draw = { bar: drawBars, hist: drawBars, hbar: drawHBars, line: drawLine, scatter: drawScatter, box: drawBox, heatmap: drawHeatmap }[spec.type];
   if (draw) draw(ctx, spec, t, width, plan);
   else {
     ctx.font = t.font;
@@ -87,8 +87,9 @@ export function drawChart(canvas, spec) {
 
 /** Short text alternative for screen readers. */
 function describe(spec) {
-  const kind = { bar: 'Bar chart', hist: 'Histogram', hbar: 'Bar chart', line: 'Line chart', scatter: 'Scatter plot', heatmap: 'Correlation heatmap' }[spec.type] ?? 'Chart';
+  const kind = { bar: 'Bar chart', hist: 'Histogram', hbar: 'Bar chart', line: 'Line chart', scatter: 'Scatter plot', box: 'Box plot', heatmap: 'Correlation heatmap' }[spec.type] ?? 'Chart';
   if (spec.type === 'heatmap') return `${kind}: ${spec.title ?? ''}. Columns: ${(spec.labels ?? []).join(', ')}. Correlation does not prove causation.`;
+  if (spec.type === 'box') return `${kind}: ${spec.x_label ?? ''}. Median ${spec.median}, quartiles ${spec.q1} to ${spec.q3}, ${spec.outliers?.length ?? 0} outliers.`;
   if (spec.type === 'scatter') return `${kind}: ${spec.title ?? ''}, ${spec.points?.length ?? 0} points.`;
   const pairs = (spec.labels ?? []).slice(0, 8).map((l, i) => `${l} ${fmt(spec.values?.[i] ?? 0)}`).join(', ');
   return `${kind}: ${spec.title ?? ''}. ${pairs}`;
@@ -315,6 +316,52 @@ function drawScatter(ctx, spec, t, width) {
     block(ctx, px(x) - 4, py(y) - 4, 9, 9, t.colors[0], t);
   }
   axes(ctx, a, t, spec);
+}
+
+// ------------------------------------------------------------------ box plot
+
+function drawBox(ctx, spec, t, width) {
+  const values = [spec.min, spec.q1, spec.median, spec.q3, spec.max, ...(spec.outliers ?? [])]
+    .map(Number).filter(Number.isFinite);
+  const a = plotArea(width, 62, 54);
+  if (values.length < 5) return axes(ctx, a, t, spec);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.08;
+  lo -= pad; hi += pad;
+  const py = v => a.y1 - (v - lo) / (hi - lo) * (a.y1 - a.y0);
+  const mid = Math.round((a.x0 + a.x1) / 2);
+  const half = Math.min(52, (a.x1 - a.x0) / 5);
+  ctx.font = t.font;
+  ctx.fillStyle = t.muted;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * i / 4;
+    ctx.fillText(fmt(v), a.x0 - 6, py(v));
+  }
+  ctx.strokeStyle = t.outline;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(mid, py(spec.min)); ctx.lineTo(mid, py(spec.max));
+  for (const v of [spec.min, spec.max]) {
+    ctx.moveTo(mid - half / 2, py(v)); ctx.lineTo(mid + half / 2, py(v));
+  }
+  ctx.stroke();
+  const top = py(spec.q3), bottom = py(spec.q1);
+  ctx.fillStyle = t.colors[0] || t.grid;
+  ctx.fillRect(mid - half, top, half * 2, Math.max(1, bottom - top));
+  ctx.strokeRect(mid - half, top, half * 2, Math.max(1, bottom - top));
+  ctx.beginPath(); ctx.moveTo(mid - half, py(spec.median));
+  ctx.lineTo(mid + half, py(spec.median)); ctx.stroke();
+  ctx.fillStyle = t.colors[5] || t.ink;
+  for (const v of spec.outliers ?? []) {
+    if (!Number.isFinite(Number(v))) continue;
+    ctx.beginPath(); ctx.arc(mid, py(Number(v)), 3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = t.ink;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(fit(spec.x_label ?? '', 30), mid, a.y1 + 10);
 }
 
 // ------------------------------------------------------------------ heatmap
