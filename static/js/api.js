@@ -56,6 +56,8 @@ export const analyze = (fileId, choice = {}) => post('/api/analyze', { file_id: 
 
 export const chat = (jobId, message) => post('/api/chat', { job_id: jobId, message });
 
+export const redrawScatter = (jobId, x, y) => post(`/api/jobs/${jobId}/scatter`, { x, y });
+
 export const getResults = (jobId, cat) => fetch(`/api/results/${jobId}/${cat}`).then(json);
 
 export const exportUrl = (jobId, kind) => `/api/export/${jobId}/${kind}`;

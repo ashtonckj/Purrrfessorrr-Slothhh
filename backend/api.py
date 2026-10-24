@@ -154,6 +154,29 @@ async def results(job_id: str, cat: str) -> dict:
     return {"cat": cat, "ready": cat in job.results, "cards": job.results.get(cat, [])}
 
 
+class ScatterIn(BaseModel):
+    x: str
+    y: str
+
+
+@router.post("/jobs/{job_id}/scatter")
+async def redraw_scatter(job_id: str, body: ScatterIn) -> dict:
+    """Update the existing artist card without rerunning the cats."""
+    job = _job_or_404(job_id)
+    cards = job.results.get("artist", [])
+    old = next((c for c in cards if c.get("id") == "artist-scatter"), None)
+    if old is None:
+        raise HTTPException(409, "No scatter plot is available for this analysis")
+    from .engines.local import scatter_card_for_columns
+    try:
+        card = await asyncio.to_thread(scatter_card_for_columns, job.file, job.selection, body.x, body.y)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    card["scatter_columns"] = old.get("scatter_columns", [])
+    cards[cards.index(old)] = card  # exports now use the selected pair
+    return {"card": card}
+
+
 @router.get("/export/{job_id}/zip")
 async def export_zip(job_id: str) -> Response:
     job = _job_or_404(job_id)
@@ -174,8 +197,8 @@ async def export_notebook(job_id: str) -> Response:
 async def chat(body: ChatIn) -> dict:
     job = jobs.get(body.job_id) if body.job_id else None
     replies = await engine.chat(job, body.message)
-    return {"replies": [{"from": r.who, "reply": r.text, "choices": r.choices, "code": r.code, "followup": r.followup}
-                        for r in replies]}
+    return {"replies": [{"from": r.who, "reply": r.text, "choices": r.choices, "code": r.code, "followup": r.followup,
+                         "card": r.card} for r in replies]}
 
 
 @router.get("/sample.csv")

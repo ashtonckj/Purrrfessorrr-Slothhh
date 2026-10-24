@@ -47,7 +47,7 @@ export const UI = {
   settings: 'Settings',
   settingsTitle: 'settings',
   engine: 'engine',
-  engines: { local: 'local stats (every row)' },
+  engines: { local: 'local stats (every row)', gemma: 'local stats + gemma (ollama)' },
   sample: 'sample csv',
   sampleLink: 'download sample',
   theme: 'theme',
@@ -97,9 +97,9 @@ export const SLOTH = {
   ],
   pick: 'pick the columns... and a target, if you have one in mind...\nor just press start... i trust you... mostly...',
   asking: ({ cat }) => [
-    `ooh... a question about the data... let me wake the ${cat} cat...`,
+    `ooh... a good question... let me wake the ${cat} cat...`,
     `mmh... that is the ${cat} cat's department... *pokes cat*`,
-    `i don't know that one... the ${cat} cat does...`,
+    `the ${cat} cat knows this one... *nudges*`,
   ],
   askingMany: ({ cats }) => [
     `ooh... a pile of questions... ${cats} cats, wake up...`,

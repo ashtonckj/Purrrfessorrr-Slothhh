@@ -5,6 +5,7 @@ engine can call them without this module knowing anything about how the cards we
 
 from __future__ import annotations
 
+import difflib
 import random
 import re
 
@@ -12,6 +13,36 @@ from ..cats import CAT_IDS
 from . import lines
 
 Results = dict[str, list[dict]]
+
+# ------------------------------------------------------------ typos, "youuu"
+
+# Words the chat rules look for, so a near miss ("avrage", "histgram") can be put right.
+VOCAB = set("""average mean median minimum maximum highest lowest biggest smallest largest missing blank blanks empty
+null outlier outliers duplicate duplicates histogram distribution correlation chart plot graph scatter column columns
+values value rows python library libraries install explain thanks thank please summary category categories
+encoding cleaning clean recipe model baseline notebook total count distinct unique sample bins title label
+labels again another other change instead average standard deviation learning machine deep neural network
+forecast forecasting series regression classification training testing prediction predict meaning""".split())
+
+
+def normalise(text: str, known: set[str] = frozenset()) -> str:
+    """Lower-case, squash stretched letters ("youuu" -> "you", "coool" -> "cool") and fix near-miss words.
+
+    `known` holds words from the data (column-name parts, common values): a word close to one of them
+    ("totl", "prices") becomes that word, and a word that already is one is left alone.
+    """
+    text = re.sub(r"(\w)\1{2,}\b", r"\1", text.lower())     # a stretched last letter: thanksss, youuu
+    text = re.sub(r"(\w)\1{2,}", r"\1\1", text)              # stretched in the middle: coool, pleeease
+    targets = sorted(VOCAB | known)
+
+    def fix(m: re.Match) -> str:
+        w = m.group(0)
+        if len(w) < 4 or w in VOCAB or w in known or w in STOP:
+            return w
+        close = difflib.get_close_matches(w, targets, n=1, cutoff=0.88)   # 0.8 turned "learning" into "cleaning"
+        return close[0] if close else w
+
+    return re.sub(r"[a-z]+", fix, text)
 
 # ------------------------------------------------------------- many questions
 
@@ -40,7 +71,11 @@ WHO = re.compile(r"\b(who are you|what are you|are you (an? )?(ai|bot|llm|robot|
                  r"(is|are) (this|you|the (chat|sloth|cats?)) (an? )?(ai|llm|gpt|chatgpt|powered)|"
                  r"language model|llm|chatgpt|gpt|ollama|gemma|claude|openai)\b")
 HELP = re.compile(r"\b(what can you do|what can i ask|what do you do|how does this work|how do i use)\b")
-REPEAT = re.compile(r"\b(repeat|say that again|say it again|what did you say|come again)\b|^\s*(again|huh|what)\W*$")
+REPEAT = re.compile(r"\b(repeat|say that again|say it again|explain (that|it|this) again|what did you say|come again)\b"
+                    r"|^\s*(again|huh|what)\W*$")
+# "Why" and "explain" questions: a language model explains them better than a card does.
+WHY = re.compile(r"^\s*(why|how come)\b|\bexplain\b|\bwhat (does|do) .+ mean\b|\bwhat(?: is|'s) (a|an)\b|"
+                 r"\bdifference between\b|\bshould i\b|\bwhen (should|do) i\b|\bwhy (do|did|does|is|are|would)\b")
 
 
 def small_talk(text: str) -> str | None:
@@ -94,13 +129,15 @@ def find_card(results: Results, text: str, only: str | None = None, need_code: b
 
 # Whole words only: "import" must not match "important", nor "code" the column "zip_code".
 CODE = re.compile(r"\b(code|python|snippets?|script|execute|run (it|this|that|them|these)|seed|random_state|random (seed|state)|randomness|reproducib\w*|"
-                  r"librar(y|ies)|imports?|install|pip|pandas|sklearn|scikit|matplotlib|notebook|ipynb|model|"
+                  r"librar(y|ies)|imports?|install|pip|pandas|sklearn|scikit|matplotlib|numpy|seaborn|scipy|"
+                  r"statsmodels|tensorflow|keras|torch|pytorch|plotly|notebook|ipynb|model|"
                   r"baseline|regression|classif\w*|predict\w*|train\w*|test.?size|function|rstudio|rscript|tidyverse|"
                   r"ggplot2?|in r|r (code|script|version|snippets?))\b")
 WANTS_R = re.compile(r"\br\b(?!\^)|rstudio|rscript|tidyverse|ggplot")        # "r^2" is not the language
 EXISTS = re.compile(r"\b(is there|are there|do you have|any|support\w*|available|also)\b")
 SEED = re.compile(r"seed|random|reproducib|same (results?|split)")
-LIBS = re.compile(r"librar|import|package|install|depend|pip|pandas|sklearn|scikit|matplotlib")
+LIBS = re.compile(r"librar|import|package|install|depend|pip|pandas|sklearn|scikit|matplotlib|numpy|seaborn|scipy|"
+                  r"statsmodels|tensorflow|keras|torch|plotly")
 SHOW = re.compile(r"\b(show|give|print|paste|see|display|write|send)\b")
 SPLIT = re.compile(r"split|train|test.?size|hold.?out")
 MODEL = re.compile(r"model|algorithm|regression|classif|predict|baseline|accuracy|r2|r\^2|\bfit\b")
@@ -109,6 +146,33 @@ RUN = re.compile(r"\b(run|execute|where|path|folder|directory|load|open)\b|read_
 EXPLAIN = re.compile(r"\b(explain|walk|what does|how does|how do|step|mean)\b")
 PIP_NAMES = {"sklearn": "scikit-learn"}
 MAX_CODE_LINES = 30
+
+
+def imports(results: Results) -> tuple[list[str], list[str]]:
+    """The modules the Python snippets import and their pip names, read from the code itself (not guessed)."""
+    code = "\n".join((c.get("code") or {}).get("python") or "" for cat in CAT_IDS for c in results.get(cat, []))
+    found = list(dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.M)))
+    return found, [PIP_NAMES.get(m, m) for m in found] + (["openpyxl"] if "read_excel" in code else [])
+
+
+def users_of(results: Results) -> dict[str, list[str]]:
+    """Module -> titles of the snippets that import it. Snippets without imports run after "Load and peek",
+    which imports pandas, so pandas is needed by every snippet."""
+    found: dict[str, list[str]] = {}
+    for cat in CAT_IDS:
+        for card in results.get(cat, []):
+            code = (card.get("code") or {}).get("python") or ""
+            for module in dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.M)):
+                found.setdefault(module, []).append(card["title"])
+    return found
+
+
+# Libraries people ask about by name, as they would type them -> the module name in an import.
+LIB_NAMES = {"pandas": "pandas", "matplotlib": "matplotlib", "sklearn": "sklearn", "scikit": "sklearn",
+             "numpy": "numpy", "seaborn": "seaborn", "scipy": "scipy", "statsmodels": "statsmodels",
+             "tensorflow": "tensorflow", "keras": "keras", "torch": "torch", "pytorch": "torch", "xgboost": "xgboost",
+             "plotly": "plotly", "openpyxl": "openpyxl"}
+NAMED_LIB = re.compile(r"\b(" + "|".join(LIB_NAMES) + r")\b")
 
 
 def code_answer(results: Results, text: str) -> tuple[str, str, list[str], dict | None]:
@@ -140,8 +204,20 @@ def code_answer(results: Results, text: str) -> tuple[str, str, list[str], dict 
             return "coder", ("the R snippets use base R only, so there is nothing to install. the exceptions: `readxl` "
                              "for .xlsx files, and `nnet` (it ships with R) when the model has to pick between several "
                              "text classes."), [], None
-        found = list(dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.M)))
-        pip = [PIP_NAMES.get(m, m) for m in found] + (["openpyxl"] if "read_excel" in code else [])
+        found, pip = imports(results)
+        named = NAMED_LIB.search(text)
+        if named:                              # "do i need matplotlib?": about that one library
+            module = LIB_NAMES[named.group(1)]
+            users = users_of(results).get(module, [])
+            name = PIP_NAMES.get(module, module)
+            if module == "openpyxl":
+                users = ["Load and peek"] if "openpyxl" in pip else []
+            if users:
+                return "coder", (f"yes: {', '.join(users[:4])}{' and more' if len(users) > 4 else ''} "
+                                 f"import{'s' if len(users) == 1 else ''} it. install it with `pip install {name}` "
+                                 f"(or everything at once: `pip install {' '.join(pip)}`)"), [], None
+            return "coder", (f"no: none of the generated snippets import {named.group(1)}, so you don't need it to run "
+                             f"them. they need `pip install {' '.join(pip)}`"), [], None
         return "coder", f"the snippets import {', '.join(found)}. install them with `pip install {' '.join(pip)}`", [], None
     if r and EXISTS.search(text) and not SHOW.search(text):      # "is there R code?"
         _, card = next(((cat, c) for cat, c in snippets if c["id"] == "coder-load"), snippets[0])

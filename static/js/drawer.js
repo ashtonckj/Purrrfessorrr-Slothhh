@@ -65,6 +65,13 @@ export function initDrawer(container) {
     state.results[cat] = cards;
     if (!drawer.hidden && state.cat === cat) show(cat);
   });
+  on('card:update', ({ cat, card }) => {     // the chat re-drew a chart: swap it in, by id
+    const cards = state.results[cat];
+    if (!cards) return;
+    const i = cards.findIndex(c => c.id === card.id);
+    if (i >= 0) cards[i] = card; else cards.unshift(card);
+    if (!drawer.hidden && state.cat === cat) show(cat);
+  });
   on('job:error', ({ cat, message }) => {
     if (!cat) return;
     state.errors[cat] = message;
@@ -148,7 +155,7 @@ function emptyState(cat, text, mood) {
 
 // ------------------------------------------------------------------- card
 
-function renderCard(cat, card, openByDefault) {
+export function renderCard(cat, card, openByDefault) {
   const details = el('details', { class: 'card px-fill' });
   details.open = openByDefault;
 
@@ -165,6 +172,40 @@ function renderCard(cat, card, openByDefault) {
   if (card.chart) {
     canvas = el('canvas', { class: 'card__canvas' });
     content.append(el('div', { class: 'card__chart' }, canvas));
+  }
+  if (card.id === 'artist-scatter' && card.chart?.type === 'scatter' && card.scatter_columns?.length) {
+    const columns = card.scatter_columns;
+    const selector = (axis, selected) => el('select', { class: 'picker__select', 'aria-label': `Scatter ${axis} column` },
+      columns.map(name => el('option', { value: name, text: name, selected: name === selected })));
+    const x = selector('X', card.chart.x_label);
+    const y = selector('Y', card.chart.y_label);
+    const message = el('p', { role: 'alert', 'aria-live': 'polite' });
+    const controls = el('div', { class: 'card__scatter-controls' },
+      el('label', {}, 'X ', x), el('label', {}, '     Y ', y), message);
+    const change = async () => {
+      const previousX = card.chart.x_label, previousY = card.chart.y_label;
+      x.disabled = y.disabled = true;
+      message.textContent = '';
+      try {
+        if (x.value === y.value) throw new Error('Choose two different columns for X and Y');
+        if (!state.jobId) throw new Error('No active analysis');
+        const result = await api.redrawScatter(state.jobId, x.value, y.value);
+        const cards = state.results[cat];
+        const index = cards?.findIndex(item => item.id === card.id) ?? -1;
+        if (index >= 0) cards[index] = result.card;
+        // Replace just this card so the selected pair's code, table and PNG export update together.
+        const replacement = renderCard(cat, result.card, details.open);
+        details.parentElement.replaceWith(replacement);
+      } catch (error) {
+        message.textContent = error.message || 'Could not redraw scatter plot';
+        x.value = previousX;
+        y.value = previousY;
+        x.disabled = y.disabled = false;
+      }
+    };
+    x.addEventListener('change', change);
+    y.addEventListener('change', change);
+    content.append(controls);
   }
   if (card.table?.columns?.length) content.append(renderTable(card.table));
 

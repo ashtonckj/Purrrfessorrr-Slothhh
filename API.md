@@ -20,7 +20,7 @@ Cat ids used everywhere: `detective`, `artist`, `scribe`, `coder`, `janitor`.
 | GET | `/api/results/{job_id}/{cat}` | | `{ cat, ready, cards: [Card] }` |
 | GET | `/api/export/{job_id}/zip` | | `.zip` download (results.json, notebook, per card: README.md, data.csv, chart.json, code.py) |
 | GET | `/api/export/{job_id}/notebook` | | `.ipynb` download |
-| POST | `/api/chat` | `{ "job_id": "..." or null, "message": "..." }` | `{ replies: [{ from, reply, choices, code, followup }] }`: one reply per question in the message. `from` is `sloth` or the cat id that answered; `choices` are short follow-ups to show as buttons, sent back as the next `message`; `code` is `{ python, r }` for a code box (or null); `followup` is true when the reply answers a question the cat asked. Short code in `reply` is wrapped in backticks. The engine remembers earlier turns of the same job. |
+| POST | `/api/chat` | `{ "job_id": "..." or null, "message": "..." }` | `{ replies: [{ from, reply, choices, code, followup }] }`: one reply per question in the message. `from` is `sloth` or the cat id that answered; `choices` are short follow-ups to show as buttons, sent back as the next `message`; `code` is `{ python, r }` for a code box (or null); `followup` is true when the reply answers a question the cat asked. `card` is a card the chat changed (a re-drawn histogram, same shape as in `result` events) or null; the frontend shows it in the bubble and swaps it into the drawer. Short code in `reply` is wrapped in backticks. The engine remembers earlier turns of the same job. |
 | GET | `/api/sample.csv` | | sample CSV (12,000-ish rows of cafe sales, with mess baked in) |
 
 Errors use FastAPI's default shape: HTTP status + `{ "detail": "message" }`.
@@ -55,7 +55,7 @@ progress, so the UI can fly papers to the desks; the file is read meanwhile.
   "description": "Plain-text paragraph.",
   "severity": "ok | warn | bad",
   "chart": {
-    "type": "bar | hbar | line | hist | scatter",
+    "type": "bar | hbar | line | hist | scatter | heatmap",
     "title": "...", "x_label": "...", "y_label": "...",
     "labels": ["a", "b"], "values": [1, 2],
     "points": [[x, y], ...]
@@ -67,7 +67,7 @@ progress, so the UI can fly papers to the desks; the file is read meanwhile.
 
 Only `id`, `title` and `description` are required. `chart` is a spec the
 frontend draws on a canvas (so "Download chart (PNG)" works offline);
-`points` is used by `scatter`, `labels`/`values` by the rest. `table` feeds
+`points` is used by `scatter`, `labels`/`matrix` (square, `matrix[i][j]` = r or `null`) by `heatmap`, `labels`/`values` by the rest. `table` feeds
 "Download data (CSV)". Every snippet has a Python and an R version (`r` may be null where there is nothing to say).
 
 ## Swapping in another engine
