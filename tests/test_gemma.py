@@ -18,7 +18,14 @@ from unittest import mock
 
 from backend import api, engines
 from backend.engines import gemma, lines
-from backend.engines.gemma import GemmaEngine, Ollama, OllamaError, canonical, check_claims, parse_tool
+from backend.engines.gemma import (
+    GemmaEngine,
+    Ollama,
+    OllamaError,
+    canonical,
+    check_claims,
+    parse_tool,
+)
 from backend.engines.local import LocalEngine
 from backend.files import FileInfo, inspect
 from backend.jobs import Job

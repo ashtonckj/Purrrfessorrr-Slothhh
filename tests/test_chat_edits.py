@@ -5,7 +5,6 @@ Run with: python -m unittest discover tests
 """
 
 import asyncio
-import csv
 import hashlib
 import io
 import random

@@ -17,7 +17,9 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field, replace
 
 from ..cats import CAT_IDS, paper_total, split_papers
-from ..files import FileInfo, Selection, cell_matcher as _matcher, cell_text, iter_rows, parse_number as _number
+from ..files import FileInfo, Selection, cell_text, iter_rows
+from ..files import cell_matcher as _matcher
+from ..files import parse_number as _number
 from ..jobs import Job
 from . import lines, rcode, talk
 from .base import Engine, Reply
@@ -88,7 +90,7 @@ OTHER_KIND = re.compile(r"\b(change|switch|turn|convert|make)\b.*\b(box ?plot|vi
 REGEN = re.compile(r"\b(regenerate|re-generate|redo|updated?|new)\b.*\bcode\b")
 QUESTION = re.compile(r"^\s*(what|why|how|is|are|does|do|which)\b")
 END = r"\s*[\"'“”]?\s*(?=$|[,;.!?]|\s+and\s+(?:the\s+)?(?:x|y|title|bins?|axis)\b)"
-LABELS = {key: re.compile(rf"\b{words}\s*(?:to|as|=|:|into|say|says|read|reads)\s*[\"'“”]?(.+?){END}", re.I)
+LABELS = {key: re.compile(rf"\b{words}\s*(?:to|as|=|:|into|say|says|read|reads)\s*[\"'“”]?(.+?){END}", re.IGNORECASE)
           for key, words in (("title", r"title"), ("x_label", r"x[- ]?(?:axis[- ]?label|axis|label)"),
                              ("y_label", r"y[- ]?(?:axis[- ]?label|axis|label)"))}
 MAX_LABEL = 80

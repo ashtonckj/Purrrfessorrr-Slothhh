@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator
+from typing import Any
 
 from .files import FileInfo, Selection
 
@@ -62,7 +63,7 @@ class Job:
                         self._changed.wait_for(lambda: len(self.events) > index or self.finished),
                         timeout=keepalive,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield None
 
 

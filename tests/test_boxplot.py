@@ -1,8 +1,7 @@
 """Focused tests for the Python box plot recommendation."""
 import unittest
 
-from backend.engines.local import boxplot_card
-from tests.test_charts import _facts, _card
+from tests.test_charts import _card, _facts
 
 
 class BoxPlotTest(unittest.TestCase):

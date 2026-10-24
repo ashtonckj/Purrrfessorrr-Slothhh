@@ -17,12 +17,7 @@ Results = dict[str, list[dict]]
 # ------------------------------------------------------------ typos, "youuu"
 
 # Words the chat rules look for, so a near miss ("avrage", "histgram") can be put right.
-VOCAB = set("""average mean median minimum maximum highest lowest biggest smallest largest missing blank blanks empty
-null outlier outliers duplicate duplicates histogram distribution correlation chart plot graph scatter column columns
-values value rows python library libraries install explain thanks thank please summary category categories
-encoding cleaning clean recipe model baseline notebook total count distinct unique sample bins title label
-labels again another other change instead average standard deviation learning machine deep neural network
-forecast forecasting series regression classification training testing prediction predict meaning""".split())
+VOCAB = {"average", "mean", "median", "minimum", "maximum", "highest", "lowest", "biggest", "smallest", "largest", "missing", "blank", "blanks", "empty", "null", "outlier", "outliers", "duplicate", "duplicates", "histogram", "distribution", "correlation", "chart", "plot", "graph", "scatter", "column", "columns", "values", "value", "rows", "python", "library", "libraries", "install", "explain", "thanks", "thank", "please", "summary", "category", "categories", "encoding", "cleaning", "clean", "recipe", "model", "baseline", "notebook", "total", "count", "distinct", "unique", "sample", "bins", "title", "label", "labels", "again", "another", "other", "change", "instead", "average", "standard", "deviation", "learning", "machine", "deep", "neural", "network", "forecast", "forecasting", "series", "regression", "classification", "training", "testing", "prediction", "predict", "meaning"}
 
 
 def normalise(text: str, known: set[str] = frozenset()) -> str:
@@ -49,15 +44,15 @@ def normalise(text: str, known: set[str] = frozenset()) -> str:
 # A new question starts after "?", ";" or a new line, or at "and/also/then/plus" followed by a question word.
 # "highest and lowest temp" stays one question (both stats), so a stat word alone does not split.
 STARTERS = r"what|what's|whats|which|how|show|list|is|are|does|do|did|can|could|would|tell|give|any|who|why|where|when"
-SPLIT_AT = re.compile(rf"\s*\?+\s*|\s*[;\n]+\s*|,?\s+(?:and|also|then|plus)\s+(?=(?:{STARTERS})\b)", re.I)
+SPLIT_AT = re.compile(rf"\s*\?+\s*|\s*[;\n]+\s*|,?\s+(?:and|also|then|plus)\s+(?=(?:{STARTERS})\b)", re.IGNORECASE)
 
 
 def split_questions(message: str) -> list[str]:
     """The separate questions in one message, in order."""
     parts = []
     for p in SPLIT_AT.split(message):
-        p = re.sub(r"^(?:(?:and|also|then|plus)\b[\s,]*)+", "", p.strip(" ,.!"), flags=re.I)   # "? and also are..."
-        p = re.sub(r"(?:[\s,]+(?:and|also|then|plus))+$", "", p, flags=re.I)
+        p = re.sub(r"^(?:(?:and|also|then|plus)\b[\s,]*)+", "", p.strip(" ,.!"), flags=re.IGNORECASE)   # "? and also are..."
+        p = re.sub(r"(?:[\s,]+(?:and|also|then|plus))+$", "", p, flags=re.IGNORECASE)
         parts.append(p)
     return [p for p in parts if len(p) > 1] or [message.strip()]
 
@@ -151,7 +146,7 @@ MAX_CODE_LINES = 30
 def imports(results: Results) -> tuple[list[str], list[str]]:
     """The modules the Python snippets import and their pip names, read from the code itself (not guessed)."""
     code = "\n".join((c.get("code") or {}).get("python") or "" for cat in CAT_IDS for c in results.get(cat, []))
-    found = list(dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.M)))
+    found = list(dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.MULTILINE)))
     return found, [PIP_NAMES.get(m, m) for m in found] + (["openpyxl"] if "read_excel" in code else [])
 
 
@@ -162,7 +157,7 @@ def users_of(results: Results) -> dict[str, list[str]]:
     for cat in CAT_IDS:
         for card in results.get(cat, []):
             code = (card.get("code") or {}).get("python") or ""
-            for module in dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.M)):
+            for module in dict.fromkeys(re.findall(r"^(?:import|from)\s+(\w+)", code, re.MULTILINE)):
                 found.setdefault(module, []).append(card["title"])
     return found
 

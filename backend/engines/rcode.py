@@ -148,7 +148,7 @@ def summary_stats(group: str | None, num: str | None) -> str:
 def baseline(target: str, classify: bool) -> str:
     """A train/test baseline on a copy of `df` (so later snippets still see the original column names)."""
     first = ("data[[target]] <- factor(data[[target]])" if classify
-             else f"data[[target]] <- suppressWarnings(as.numeric(data[[target]]))\ndata <- data[!is.na(data[[target]]), ]")
+             else "data[[target]] <- suppressWarnings(as.numeric(data[[target]]))\ndata <- data[!is.na(data[[target]]), ]")
     fit = ("nnet::multinom(reformulate(\".\", response = target), data = train, trace = FALSE)" if classify
            else "lm(reformulate(\".\", response = target), data = train)")
     score = ('cat("accuracy:", round(mean(predict(fit, test) == test[[target]]), 3), "\\n")' if classify else

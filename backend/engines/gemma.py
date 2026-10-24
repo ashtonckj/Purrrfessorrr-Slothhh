@@ -27,7 +27,18 @@ from ..cats import CAT_IDS
 from ..jobs import Job
 from . import lines, talk
 from .base import Reply
-from .local import HELP_HINT, NO, TOPICS, YES, Convo, Facts, LocalEngine, _as_list, _chart_request, _is_id
+from .local import (
+    HELP_HINT,
+    NO,
+    TOPICS,
+    YES,
+    Convo,
+    Facts,
+    LocalEngine,
+    _as_list,
+    _chart_request,
+    _is_id,
+)
 
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
 RECHECK = 30            # seconds before trying an Ollama that just failed again
@@ -244,7 +255,7 @@ def check_claims(answer: str, source: str, names: list[str]) -> tuple[str, int]:
 
 def _tidy(text: str, limit: int = 900) -> str:
     """No markdown emphasis or headings, and cut at a sentence end when it runs long."""
-    text = re.sub(r"\*\*|__|^#+\s*", "", text, flags=re.M).strip()
+    text = re.sub(r"\*\*|__|^#+\s*", "", text, flags=re.MULTILINE).strip()
     if len(text) <= limit:
         return text
     cut = max(text.rfind(end, 0, limit) for end in (". ", "! ", "? "))
