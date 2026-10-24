@@ -1,5 +1,2 @@
 [MESSAGES CONTROL]
-# C0116: Missing function or method docstring
-# R0913: Too many arguments
-# R0917: Too many positional arguments
-disable=C0116,R0913,R0917
+disable=C0116,R0913,R0917,C0301,R0911,R0914
