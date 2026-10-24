@@ -283,19 +283,36 @@ function drawLine(ctx, spec, t, width, plan) {
 }
 
 function drawScatter(ctx, spec, t, width) {
-  const pts = (spec.points ?? []).map(([x, y]) => [Number(x), Number(y)]);
+  const pts = (spec.points ?? []).map(([x, y]) => [Number(x), Number(y)])
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
   const a = plotArea(width);
-  const [ymax, ystep] = niceScale(Math.max(...pts.map(p => p[1]), 0));
-  const [xmax, xstep] = niceScale(Math.max(...pts.map(p => p[0]), 0));
-  gridY(ctx, a, t, ymax, ystep);
-  ctx.font = t.font; ctx.fillStyle = t.muted; ctx.textBaseline = 'top'; ctx.textAlign = 'center';
-  for (let v = 0; v <= xmax + xstep / 2; v += xstep) {
-    ctx.fillText(fmt(v), Math.round(a.x0 + (v / xmax) * (a.x1 - a.x0)), a.y1 + 8);
+  if (!pts.length) return axes(ctx, a, t, spec);
+  const range = (values) => {
+    let lo = Math.min(...values), hi = Math.max(...values);
+    if (lo === hi) { lo -= 1; hi += 1; }
+    return [lo, hi];
+  };
+  const [xmin, xmax] = range(pts.map(p => p[0]));
+  const [ymin, ymax] = range(pts.map(p => p[1]));
+  const px = x => a.x0 + (x - xmin) / (xmax - xmin) * (a.x1 - a.x0);
+  const py = y => a.y1 - (y - ymin) / (ymax - ymin) * (a.y1 - a.y0);
+  ctx.font = t.font;
+  ctx.fillStyle = t.muted;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 4; i++) {
+    const x = xmin + (xmax - xmin) * i / 4;
+    ctx.fillText(fmt(x), Math.round(px(x)), a.y1 + 8);
+  }
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const y = ymin + (ymax - ymin) * i / 4;
+    ctx.fillText(fmt(y), a.x0 - 6, Math.round(py(y)));
   }
   ctx.textAlign = 'left';
   for (const [x, y] of pts) {
-    if (y < 0 || x < 0) continue;
-    block(ctx, a.x0 + (x / xmax) * (a.x1 - a.x0) - 4, a.y1 - (y / ymax) * (a.y1 - a.y0) - 4, 9, 9, t.colors[0], t);
+    block(ctx, px(x) - 4, py(y) - 4, 9, 9, t.colors[0], t);
   }
   axes(ctx, a, t, spec);
 }

@@ -17,9 +17,7 @@ from collections import Counter, defaultdict
 from dataclasses import dataclass, field, replace
 
 from ..cats import CAT_IDS, paper_total, split_papers
-from ..files import FileInfo, Selection, cell_text, iter_rows
-from ..files import cell_matcher as _matcher
-from ..files import parse_number as _number
+from ..files import FileInfo, Selection, cell_matcher as _matcher, cell_text, iter_rows, parse_number as _number
 from ..jobs import Job
 from . import lines, rcode, talk
 from .base import Engine, Reply
@@ -952,6 +950,36 @@ def _best_pair(measures: list[Col]):
     return (a, b, r, points, step > 1), ranked
 
 
+
+def scatter_card_for_columns(info: FileInfo, selection: Selection, x_name: str, y_name: str) -> dict:
+    """Rebuild only the scatter card from the existing upload and row selection."""
+    allowed = selection.columns if selection.columns is not None else list(range(len(info.columns)))
+    names = [info.columns[i] for i in allowed]
+    if x_name == y_name:
+        raise ValueError("Choose two different columns for X and Y")
+    if x_name not in names or y_name not in names:
+        raise ValueError("Unknown or unselected scatter column")
+    rows, _, _ = _read(info, selection, [info.columns.index(x_name), info.columns.index(y_name)])
+    x = _profile(x_name, [row[0] for row in rows])
+    y = _profile(y_name, [row[1] for row in rows])
+    if not x.is_measure or not y.is_measure or x.distinct < 2 or y.distinct < 2:
+        raise ValueError("Scatter plots need two varying numerical columns")
+    pairs = [(a, b) for a, b in zip(x.numbers, y.numbers) if a is not None and b is not None]
+    if len(pairs) < 2:
+        raise ValueError("Not enough rows with valid numbers in both columns")
+    step = max(1, len(pairs) // SCATTER_POINTS)
+    points = [[round(a, 3), round(b, 3)] for a, b in pairs[::step]]
+    return {
+        "id": "artist-scatter", "title": f"{x_name} vs {y_name}",
+        "description": f"Scatter plot of {x_name} and {y_name} ({len(pairs)} paired rows).",
+        "chart": {"type": "scatter", "title": f"{x_name} vs {y_name}",
+                  "x_label": x_name, "y_label": y_name, "points": points},
+        "table": {"columns": [x_name, y_name], "rows": points},
+        "code": {"python": f"df.plot.scatter(x={q(x_name)}, y={q(y_name)}, s=8)\nplt.show()",
+                 "r": rcode.scatter(x_name, y_name)},
+    }
+
+
 # ------------------------------------------------------------------ cards
 # Every card follows the shape documented in engines/base.py.
 
@@ -1119,6 +1147,7 @@ plt.show()""", "r": rcode.trend(d, a.name)},
         strength = "strongly" if abs(r) >= 0.7 else "moderately" if abs(r) >= 0.4 else "barely"
         cards.append({
             "id": "artist-scatter",
+            "scatter_columns": [c.name for c in f.measures if c.distinct >= 2],
             "title": f"{x.name} vs {y.name}",
             "description": f"A scatter plot of the two number columns that move together most: "
                            f"{strength} {'up' if r >= 0 else 'opposite ways'} (r = {r:.2f}"
