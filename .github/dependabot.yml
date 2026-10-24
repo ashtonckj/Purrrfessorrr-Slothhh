@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # 1. Update Python dependencies
+  - package-ecosystem: "pip" # Use "pip" for pip, poetry, pipenv, or uv
+    directory: "/"           # Location of your requirements.txt / pyproject.toml
+    schedule:
+      interval: "weekly"     # Options: daily, weekly, monthly
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    
+  # 2. Keep your GitHub Actions updated too (Highly Recommended)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
