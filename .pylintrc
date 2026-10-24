@@ -1,2 +1,14 @@
 [MESSAGES CONTROL]
-disable=C0116,R0913,R0917,C0301,R0911,R0914
+# Add these new rules to silence test-specific and minor script warnings:
+# W0613: Unused argument
+# R0903: Too few public methods
+# C0103: Invalid name (allows do_GET/do_POST)
+# C0115: Missing class docstring
+# C0415: Import outside toplevel
+# W0212: Protected access (very common in tests)
+# C3001: Lambda assignment
+# R0904: Too many public methods (common in large test classes)
+# C0114: Missing module docstring
+# C0302: Too many lines in module
+# R0912: Too many branches
+disable=C0114,C0115,C0116,R0903,R0904,R0912,R0913,R0917,C0301,C0302,R0911,R0914,W0613,C0103,C0415,W0212,C3001
