@@ -59,9 +59,8 @@ function buildBoss() {
   boss.stackWrap = el('span', { class: 'boss__stack', hidden: true }, boss.stack);
 
   // wall decorations (purely visual)
-  room.append(el('div', { class: 'decor decor--chart', 'aria-hidden': 'true' },
-    ...[3, 5, 4, 7, 6].map(h => el('span', { style: { height: `${h * 6}px` } }))));
-  room.append(el('div', { class: 'decor decor--sign', 'aria-hidden': 'true' }, OFFICE.sign));
+  room.append(el('img', { class: 'decor decor--noticeboard', src: './assets/sprites/props/noticeboard.png', alt: '', 'aria-hidden': 'true' }));
+  room.append(el('img', { class: 'decor decor--sign-img', src: './assets/sprites/props/nap_sign.png', alt: '', 'aria-hidden': 'true' }));
 
   room.append(el('div', { class: 'boss' },
     el('span', { class: 'boss__branch' }, sprite('branch', {}, true)),
