@@ -27,6 +27,36 @@ python -m venv .venv
 
 On Windows, run `.venv\Scripts\python -m pip install -r requirements.txt`; on macOS/Linux run `.venv/bin/python -m pip install -r requirements.txt`. Start the app with `run.bat` or `./run.sh` as appropriate. Ollama is optional for most development.
 
+## Project structure
+
+```text
+Purrrfessorrr-Slothhh/
+├── app.py                    # Application entry point
+├── backend/
+│   ├── api.py                # FastAPI routes
+│   ├── engines/              # Local analysis, Gemma, chat, code
+│   ├── files.py              # File handling
+│   └── exporters.py          # Download/export logic
+├── static/                   # Frontend, pixel art, scripts
+├── tests/                    # Automated tests
+├── tools/                    # Asset generation utilities
+├── config.env                # Local configuration
+├── requirements.txt
+├── EDA.md                    # Statistical methods
+├── API.md                    # Backend API reference
+└── ASSETS.md                 # Pixel-art asset guide
+```
+
+## Testing
+
+With dependencies installed, run:
+
+```bash
+python -m unittest discover tests
+```
+
+Some optional integration tests require R or a running Ollama model; tests designed for those tools may be skipped when unavailable.
+
 ## Pull request workflow
 
 1. Fork the repository and create a descriptive branch, e.g. `fix/upload-preview`.
