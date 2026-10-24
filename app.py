@@ -40,7 +40,9 @@ app.mount("/", FreshStaticFiles(directory=STATIC_DIR, html=True), name="static")
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run Purrfessorrr Slothhh locally.")
     parser.add_argument("--port", type=int, default=settings.port)
-    parser.add_argument("--no-browser", action="store_true", help="don't open a browser tab")
+    parser.add_argument(
+        "--no-browser", action="store_true", help="don't open a browser tab"
+    )
     args = parser.parse_args()
 
     url = f"http://{settings.host}:{args.port}/"

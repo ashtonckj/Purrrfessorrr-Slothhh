@@ -39,10 +39,17 @@ class LocalEngineTest(unittest.TestCase):
         path = self.dir / "wide.csv"
         with path.open("w", newline="") as fh:
             w = csv.writer(fh)
-            w.writerow([f"num_{i}" for i in range(150)] + [f"cat_{i}" for i in range(50)])
+            w.writerow(
+                [f"num_{i}" for i in range(150)] + [f"cat_{i}" for i in range(50)]
+            )
             for _ in range(500):
-                w.writerow([round(rng.gauss(0, 1), 3) if rng.random() > 0.05 else "" for _ in range(150)]
-                           + [rng.choice("abcde") for _ in range(50)])
+                w.writerow(
+                    [
+                        round(rng.gauss(0, 1), 3) if rng.random() > 0.05 else ""
+                        for _ in range(150)
+                    ]
+                    + [rng.choice("abcde") for _ in range(50)]
+                )
         facts = analyse(_file(path))
         self.assertEqual(len(facts.cols), 200)
         self.assertEqual(len(facts.measures), 150)
@@ -56,9 +63,13 @@ class LocalEngineTest(unittest.TestCase):
         path = self.dir / "cafe.csv"
         path.write_bytes(sample_csv())
         info = _file(path)
-        store, quantity, total = (info.columns.index(c) for c in ("store", "quantity", "total"))
+        store, quantity, total = (
+            info.columns.index(c) for c in ("store", "quantity", "total")
+        )
         everything = analyse(info)
-        sel = Selection(columns=[store, quantity, total], target=total, exclude=[(store, "Campus")])
+        sel = Selection(
+            columns=[store, quantity, total], target=total, exclude=[(store, "Campus")]
+        )
         facts = analyse(info, sel)
         self.assertEqual([c.name for c in facts.cols], ["store", "quantity", "total"])
         self.assertEqual(facts.target.name, "total")
@@ -70,19 +81,41 @@ class LocalEngineTest(unittest.TestCase):
         self.assertIn('!= "Campus"', load)
         self.assertIn('df = df[["store", "quantity", "total"]]', load)
         with self.assertRaises(ValueError):
-            analyse(info, Selection(exclude=[(store, v) for v in ("Campus", "Riverside", "Old Town", "Harbour", "Station",
-                                                                     "CAMPUS", "RIVERSIDE", "OLD TOWN", "HARBOUR", "STATION")]))
+            analyse(
+                info,
+                Selection(
+                    exclude=[
+                        (store, v)
+                        for v in (
+                            "Campus",
+                            "Riverside",
+                            "Old Town",
+                            "Harbour",
+                            "Station",
+                            "CAMPUS",
+                            "RIVERSIDE",
+                            "OLD TOWN",
+                            "HARBOUR",
+                            "STATION",
+                        )
+                    ]
+                ),
+            )
 
     def test_none_is_a_value_not_a_missing_cell(self):
         path = self.dir / "holiday.csv"
         path.write_text("holiday,temp\nNone,1\nNone,2\nLabor Day,3\nNone,\nNA,5\n")
         facts = analyse(_file(path))
         holiday, temp = facts.cols
-        self.assertEqual((holiday.kind, holiday.missing, holiday.distinct), ("text", 1, 2))   # only "NA" is missing
+        self.assertEqual(
+            (holiday.kind, holiday.missing, holiday.distinct), ("text", 1, 2)
+        )  # only "NA" is missing
         self.assertEqual(holiday.top[0], ("None", 3))
         self.assertEqual(temp.missing, 1)
         code = BUILDERS["coder"](facts)[0]["code"]["python"]
-        self.assertIn("keep_default_na=False", code)       # pandas would otherwise turn "None" into NaN
+        self.assertIn(
+            "keep_default_na=False", code
+        )  # pandas would otherwise turn "None" into NaN
         self.assertNotIn('"None"', code.split("na_values=")[1].split("]")[0])
 
     def test_exclude_treats_zero_and_zero_point_zero_alike(self):
@@ -90,13 +123,19 @@ class LocalEngineTest(unittest.TestCase):
         path.write_text("n,label\n0,a\n0.0,b\n0.00,c\n1,d\n,e\n")
         info = _file(path)
         facts = analyse(info, Selection(exclude=[(0, "0")]))
-        self.assertEqual((facts.rows, facts.excluded_rows), (2, 3))     # the blank cell is not zero
+        self.assertEqual(
+            (facts.rows, facts.excluded_rows), (2, 3)
+        )  # the blank cell is not zero
         facts = analyse(info, Selection(exclude=[(0, "0.0")]))
         self.assertEqual(facts.excluded_rows, 3)
         facts = analyse(info, Selection(exclude=[(1, "a")]))
         self.assertEqual(facts.excluded_rows, 1)
-        self.assertIn('pd.to_numeric(df["n"], errors="coerce") != 0.0',
-                      BUILDERS["coder"](analyse(info, Selection(exclude=[(0, "0")])))[0]["code"]["python"])
+        self.assertIn(
+            'pd.to_numeric(df["n"], errors="coerce") != 0.0',
+            BUILDERS["coder"](analyse(info, Selection(exclude=[(0, "0")])))[0]["code"][
+                "python"
+            ],
+        )
 
     def _chat(self, text: str):
         path = self.dir / "chat.csv"
@@ -104,7 +143,9 @@ class LocalEngineTest(unittest.TestCase):
         engine = LocalEngine(speed=0.05)
         job = Job(id="j", file=_file(path))
         asyncio.run(engine.run(job))
-        return lambda m: asyncio.run(engine.chat(job, m))[0]     # the first (usually only) reply
+        return lambda m: asyncio.run(engine.chat(job, m))[
+            0
+        ]  # the first (usually only) reply
 
     def _cafe(self):
         path = self.dir / "cafe.csv"
@@ -112,7 +153,9 @@ class LocalEngineTest(unittest.TestCase):
         engine = LocalEngine(speed=0.05)
         job = Job(id="j", file=_file(path))
         asyncio.run(engine.run(job))
-        return lambda m: asyncio.run(engine.chat(job, m))[0]     # the first (usually only) reply
+        return lambda m: asyncio.run(engine.chat(job, m))[
+            0
+        ]  # the first (usually only) reply
 
     def test_chat_routes_to_the_right_cat(self):
         ask = self._cafe()
@@ -127,11 +170,11 @@ class LocalEngineTest(unittest.TestCase):
         first = ask("any outliers in quantity?")
         self.assertEqual(first.who, "detective")
         self.assertIn("quantity has", first.text)
-        again = ask("what about total?")                  # a bare column keeps the detective
+        again = ask("what about total?")  # a bare column keeps the detective
         self.assertEqual(again.who, "detective")
         self.assertIn("total has", again.text)
         ask("any outliers in rating?")
-        missing = ask("is it missing anywhere?")           # "it" is rating
+        missing = ask("is it missing anywhere?")  # "it" is rating
         self.assertEqual(missing.who, "janitor")
         self.assertIn("rating has", missing.text)
         ask("any outliers in quantity?")
@@ -142,50 +185,80 @@ class LocalEngineTest(unittest.TestCase):
         reply = ask("any outliers?")
         self.assertEqual(reply.who, "detective")
         self.assertTrue(reply.choices)
-        follow = ask(reply.choices[0])                     # tapping a choice sends its name
+        follow = ask(reply.choices[0])  # tapping a choice sends its name
         self.assertEqual(follow.who, "detective")
         self.assertIn(f"{reply.choices[0]} has", follow.text)
 
     def test_cats_ask_before_guessing(self):
         ask = self._cafe()
-        guess = ask("tell me about customer")              # only customer_age matches, but it is a guess
+        guess = ask(
+            "tell me about customer"
+        )  # only customer_age matches, but it is a guess
         self.assertEqual((guess.who, guess.choices), ("scribe", ["yes", "no"]))
         self.assertIn("customer_age", guess.text)
         self.assertIn("customer_age is a number column", ask("yes").text)
         ask("tell me about customer")
-        self.assertEqual(ask("no").who, "sloth")           # declined: the sloth drops it
-        stat = ask("what is the average?")                 # no column named
+        self.assertEqual(ask("no").who, "sloth")  # declined: the sloth drops it
+        stat = ask("what is the average?")  # no column named
         self.assertEqual(stat.choices[0], "quantity")
         self.assertIn("mean", ask("yes").text)
         ask("tell me about customer")
-        self.assertEqual(ask("any duplicates?").who, "detective")   # an unrelated question wins over the open one
+        self.assertEqual(
+            ask("any duplicates?").who, "detective"
+        )  # an unrelated question wins over the open one
 
     def test_cats_read_the_data_back(self):
         holidays = ["None"] * 30 + ["Labor Day"] * 3 + ["Christmas Day"] * 2
-        ask = self._chat("holiday,temp\n" + "\n".join(f"{h},{270 + i}" for i, h in enumerate(holidays)) + "\n")
-        ask("any outliers in temp?")                       # an earlier detective turn must not hijack the next question
-        listing = ask("owh, what holidays are there in the dataset, could you list them out for me")
+        ask = self._chat(
+            "holiday,temp\n"
+            + "\n".join(f"{h},{270 + i}" for i, h in enumerate(holidays))
+            + "\n"
+        )
+        ask(
+            "any outliers in temp?"
+        )  # an earlier detective turn must not hijack the next question
+        listing = ask(
+            "owh, what holidays are there in the dataset, could you list them out for me"
+        )
         self.assertEqual(listing.who, "scribe")
         self.assertIn("holiday has 3 distinct values", listing.text)
         self.assertIn("'None' (30)", listing.text)
         self.assertIn("'Labor Day' (3)", listing.text)
         self.assertIn("'Christmas Day' (2)", listing.text)
-        again = ask("and what values does it have?")       # "it" is the holiday column from the last answer
+        again = ask(
+            "and what values does it have?"
+        )  # "it" is the holiday column from the last answer
         self.assertIn("holiday has 3 distinct values", again.text)
-        self.assertIn("appears 2 times in holiday", ask("how many Christmas Day are there?").text)
+        self.assertIn(
+            "appears 2 times in holiday", ask("how many Christmas Day are there?").text
+        )
         columns = ask("what columns are there?")
         self.assertIn("holiday (text)", columns.text)
         self.assertIn("temp (number)", columns.text)
         self.assertEqual(columns.choices, ["holiday", "temp"])
         rows = ask("show me some rows")
         self.assertIn("row 1: holiday=None, temp=270", rows.text)
-        self.assertEqual(ask("what types of holiday are there?").who, "scribe")   # "types" is not a type problem
+        self.assertEqual(
+            ask("what types of holiday are there?").who, "scribe"
+        )  # "types" is not a type problem
 
     def test_code_question_after_a_column_list_is_not_hijacked(self):
         """The reported conversation: list a column's values, then ask about the code."""
-        rows = "".join(f"{w},{d},{20 + i},{100 + i * 3}\n" for i, (w, d) in enumerate(
-            [("Clear", "sky is clear"), ("Rain", "light rain"), ("Clouds", "few clouds"), ("Clear", "sunny")] * 5))
-        ask = self._chat("weather_main,weather_description,temp,traffic_volume\n" + rows)
+        rows = "".join(
+            f"{w},{d},{20 + i},{100 + i * 3}\n"
+            for i, (w, d) in enumerate(
+                [
+                    ("Clear", "sky is clear"),
+                    ("Rain", "light rain"),
+                    ("Clouds", "few clouds"),
+                    ("Clear", "sunny"),
+                ]
+                * 5
+            )
+        )
+        ask = self._chat(
+            "weather_main,weather_description,temp,traffic_volume\n" + rows
+        )
         vague = ask("can you list me the type of weather that exists?")
         self.assertEqual(vague.choices[-1], "all")
         self.assertIn("weather_main has 3 distinct values", ask("weather_main").text)
@@ -196,19 +269,25 @@ class LocalEngineTest(unittest.TestCase):
 
     def test_code_questions_are_answered_from_the_generated_code(self):
         ask = self._cafe()
-        ask("any outliers in quantity?")                   # "it" below must not mean the quantity column
+        ask("any outliers in quantity?")  # "it" below must not mean the quantity column
         seed = ask("about the code, what seed does it use?")
         self.assertEqual(seed.who, "coder")
-        self.assertIn("`random_state=42`", seed.text)       # short code goes inline, in backticks
-        self.assertEqual(seed.choices, [])                  # a clear answer needs no follow-up buttons
+        self.assertIn(
+            "`random_state=42`", seed.text
+        )  # short code goes inline, in backticks
+        self.assertEqual(seed.choices, [])  # a clear answer needs no follow-up buttons
         libs = ask("which libraries does the code use?").text
         self.assertIn("pandas", libs)
         self.assertRegex(libs, r"pip install .*pandas")
-        self.assertIn("scikit-learn", libs.split("pip install")[1])      # sklearn is installed as scikit-learn
+        self.assertIn(
+            "scikit-learn", libs.split("pip install")[1]
+        )  # sklearn is installed as scikit-learn
         self.assertIn("LinearRegression", ask("what model does the baseline use?").text)
         self.assertIn("test_size=0.2", ask("how is the data split for training?").text)
         load = ask("show me the code to load the data")
-        self.assertIn("pd.read_csv(", load.code["python"])   # whole snippets go in a code box
+        self.assertIn(
+            "pd.read_csv(", load.code["python"]
+        )  # whole snippets go in a code box
         self.assertNotIn("pd.read_csv(", load.text)
         self.assertIn("cafe.csv", ask("how do I run this?").text)
         self.assertIn("ipynb", ask("can I get a notebook?").text)
@@ -221,13 +300,19 @@ class LocalEngineTest(unittest.TestCase):
         self.assertIn("`lm`", ask("what model does the R code fit?").text)
         r_load = ask("show me the R code to load the data")
         self.assertEqual(r_load.code["lang"], "r")
-        self.assertEqual(ask("show me the code to load the data").code["lang"], "python")
+        self.assertEqual(
+            ask("show me the code to load the data").code["lang"], "python"
+        )
         self.assertIn("read.csv", ask("how do I run this in R?").text)
         finder = ask("show me the code that finds outliers")
         self.assertEqual(finder.who, "detective")
         self.assertIn("quantile", finder.code["python"])
-        self.assertEqual(ask("what score does the model get?").who, "coder")      # "score" here is not the health score
-        self.assertTrue(ask("tell me about the code").choices)                      # a vague code question offers examples
+        self.assertEqual(
+            ask("what score does the model get?").who, "coder"
+        )  # "score" here is not the health score
+        self.assertTrue(
+            ask("tell me about the code").choices
+        )  # a vague code question offers examples
 
     def _cafe_all(self):
         path = self.dir / "cafe.csv"
@@ -239,15 +324,23 @@ class LocalEngineTest(unittest.TestCase):
 
     def test_several_questions_get_several_answers(self):
         ask = self._cafe_all()
-        replies = ask("what is the highest quantity and how many duplicate rows are there?")
+        replies = ask(
+            "what is the highest quantity and how many duplicate rows are there?"
+        )
         self.assertEqual([r.who for r in replies], ["scribe", "detective"])
         self.assertIn("The highest quantity is 250", replies[0].text)
         self.assertIn("63 duplicate rows", replies[1].text)
-        same = ask("what is the mean rating? what is the median rating?")       # one cat, two answers
+        same = ask(
+            "what is the mean rating? what is the median rating?"
+        )  # one cat, two answers
         self.assertEqual([r.who for r in same], ["scribe", "scribe"])
         self.assertTrue(same[0].text.startswith("*pushes up glasses*"))
-        self.assertFalse(same[1].text.startswith("*pushes up glasses*"))       # the voice line is said once
-        pair = ask("highest quantity and lowest customer_age")               # each column gets its own stat
+        self.assertFalse(
+            same[1].text.startswith("*pushes up glasses*")
+        )  # the voice line is said once
+        pair = ask(
+            "highest quantity and lowest customer_age"
+        )  # each column gets its own stat
         self.assertEqual(len(pair), 2)
         self.assertIn("highest quantity", pair[0].text)
         self.assertIn("lowest customer_age", pair[1].text)
@@ -264,52 +357,78 @@ class LocalEngineTest(unittest.TestCase):
         self.assertIn("highest customer_age", both)
         self.assertNotIn("median", both)
         self.assertIn("most common store", ask("what is the most common store?").text)
-        self.assertIn("earliest date is 2025-01-03", ask("what is the earliest date?").text)
+        self.assertIn(
+            "earliest date is 2025-01-03", ask("what is the earliest date?").text
+        )
         self.assertIn("not a number column", ask("what is the highest store?").text)
         self.assertRegex(ask("how many rows are there?").text, r"12,063 rows\.$")
         self.assertIn("12 columns.", ask("how many columns are there?").text)
-        asked = ask("what is the highest value?")                          # no column: the cat checks first
+        asked = ask("what is the highest value?")  # no column: the cat checks first
         self.assertEqual(asked.choices[0], "quantity")
         answer = ask("yes")
         self.assertIn("The highest quantity is 250", answer.text)
         self.assertNotIn("median", answer.text)
 
     def test_without_a_file_several_questions_get_one_hint(self):
-        replies = asyncio.run(LocalEngine(speed=0.05).chat(None, "what is the max temp? and how many rows are there?"))
+        replies = asyncio.run(
+            LocalEngine(speed=0.05).chat(
+                None, "what is the max temp? and how many rows are there?"
+            )
+        )
         self.assertEqual([r.who for r in replies], ["sloth"])
 
     def test_buttons_and_askers_fit_the_question(self):
         ask = self._cafe()
-        self.assertEqual(ask("how many duplicate rows are there?").choices, [])   # outlier columns don't fit here
+        self.assertEqual(
+            ask("how many duplicate rows are there?").choices, []
+        )  # outlier columns don't fit here
         self.assertTrue(ask("any outliers?").choices)
         ask("show me the code to load the data")
-        self.assertEqual(ask("tell me about customer").who, "scribe")            # not the coder who spoke last
+        self.assertEqual(
+            ask("tell me about customer").who, "scribe"
+        )  # not the coder who spoke last
 
     def test_a_connecting_word_is_not_a_question(self):
         ask = self._cafe_all()
-        replies = ask("can you give me the code snippet to load the shape? and also are there any missing values in the dataset?")
-        self.assertEqual([r.who for r in replies], ["coder", "janitor"])           # no sloth hint in between
+        replies = ask(
+            "can you give me the code snippet to load the shape? and also are there any missing values in the dataset?"
+        )
+        self.assertEqual(
+            [r.who for r in replies], ["coder", "janitor"]
+        )  # no sloth hint in between
         self.assertIsNotNone(replies[0].code)
-        mixed = ask("show me some rows and zzzz qqqq")                              # a part nobody understands stays quiet
+        mixed = ask(
+            "show me some rows and zzzz qqqq"
+        )  # a part nobody understands stays quiet
         self.assertEqual([r.who for r in mixed], ["scribe"])
-        self.assertEqual(ask("zzzz qqqq")[0].who, "sloth")                          # ...unless it is the whole message
+        self.assertEqual(
+            ask("zzzz qqqq")[0].who, "sloth"
+        )  # ...unless it is the whole message
 
     def test_answers_to_a_cats_question_are_marked_as_follow_ups(self):
         ask = self._cafe()
-        self.assertFalse(ask("tell me about customer").followup)            # the question itself is a new request
-        self.assertTrue(ask("yes").followup)                                # the answer to it is not
-        ask("tell me about weather")                                         # no such column: a fresh question
+        self.assertFalse(
+            ask("tell me about customer").followup
+        )  # the question itself is a new request
+        self.assertTrue(ask("yes").followup)  # the answer to it is not
+        ask("tell me about weather")  # no such column: a fresh question
         self.assertFalse(ask("any outliers in quantity?").followup)
 
     def test_small_talk_and_honesty(self):
         ask = self._cafe()
         self.assertEqual(ask("hi").who, "sloth")
-        self.assertIn(ask("thanks!").text, lines.CHAT_THANKS)                      # one of the sloth's replies
+        self.assertIn(
+            ask("thanks!").text, lines.CHAT_THANKS
+        )  # one of the sloth's replies
         self.assertIn("language model", ask("are you an AI?").text)
         self.assertIn("what columns are there?", ask("what can you do?").text)
         self.assertIn("closes eyes", ask("bye").text)
-        self.assertEqual(ask("what is the capital of france?").who, "sloth")      # off topic: a hint, not a data summary
-        self.assertEqual(ask("hi, list the columns").who, "scribe")               # a greeting does not swallow a real question
+        self.assertEqual(
+            ask("what is the capital of france?").who, "sloth"
+        )  # off topic: a hint, not a data summary
+        self.assertEqual(
+            ask("hi, list the columns").who, "scribe"
+        )  # a greeting does not swallow a real question
 
     def test_health_score_can_be_explained_and_repeated(self):
         ask = self._cafe()
@@ -326,19 +445,31 @@ class LocalEngineTest(unittest.TestCase):
         dupes = ask("how many duplicate rows are there?")
         self.assertEqual(dupes.who, "detective")
         self.assertIn("63 duplicate rows", dupes.text)
-        self.assertIn("Full cleaning recipe", ask("tell me about the cleaning recipe").text)
+        self.assertIn(
+            "Full cleaning recipe", ask("tell me about the cleaning recipe").text
+        )
         self.assertIn("scatter", ask("is there a scatter plot?").text.lower())
 
     def test_listing_values_after_a_vague_column_asks_first(self):
-        ask = self._chat("weather_main,weather_description\nClear,sky\nClear,sunny\nRain,wet\n")
+        ask = self._chat(
+            "weather_main,weather_description\nClear,sky\nClear,sunny\nRain,wet\n"
+        )
         self.assertEqual(ask("list the weather").choices[-1], "all")
-        self.assertIn("weather_main has 2 distinct values", ask("weather_main").text)   # the list intent survives the question
+        self.assertIn(
+            "weather_main has 2 distinct values", ask("weather_main").text
+        )  # the list intent survives the question
 
     def test_cats_list_ambiguous_columns(self):
-        ask = self._chat("weather_main,weather_description,n\nClear,sky,1\nRain,wet,2\n")
+        ask = self._chat(
+            "weather_main,weather_description,n\nClear,sky,1\nRain,wet,2\n"
+        )
         many = ask("tell me about weather")
-        self.assertEqual(sorted(many.choices), ["all", "weather_description", "weather_main"])
-        self.assertEqual(ask("yes").choices, many.choices)  # "yes" to a list: asks again
+        self.assertEqual(
+            sorted(many.choices), ["all", "weather_description", "weather_main"]
+        )
+        self.assertEqual(
+            ask("yes").choices, many.choices
+        )  # "yes" to a list: asks again
         self.assertIn("weather_main is text", ask("weather_main").text)
 
 

@@ -14,7 +14,12 @@ from functools import lru_cache
 ROWS = 12_000
 
 MENU = {
-    "coffee": [("espresso", 2.8), ("latte", 4.2), ("cappuccino", 4.0), ("cold brew", 4.5)],
+    "coffee": [
+        ("espresso", 2.8),
+        ("latte", 4.2),
+        ("cappuccino", 4.0),
+        ("cold brew", 4.5),
+    ],
     "tea": [("matcha latte", 4.8), ("chai", 3.9), ("green tea", 3.0)],
     "pastry": [("croissant", 3.2), ("cinnamon roll", 3.8), ("banana bread", 3.5)],
     "food": [("toastie", 6.5), ("salad bowl", 8.9), ("soup", 5.9)],

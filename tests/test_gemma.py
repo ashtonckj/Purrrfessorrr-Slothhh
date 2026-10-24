@@ -42,6 +42,7 @@ def _cafe(dir_: Path) -> FileInfo:
 
 class FakeLLM:
     """Stands in for Ollama: answers from a function and records every prompt."""
+
     model = "gemma3:1b"
 
     def __init__(self, answer):
@@ -57,6 +58,7 @@ class FakeLLM:
 
 class StubOllama(BaseHTTPRequestHandler):
     """A pretend Ollama on a free port. `mode` picks how it behaves."""
+
     mode = "ok"
     models = ["gemma3:1b"]
 
@@ -72,7 +74,7 @@ class StubOllama(BaseHTTPRequestHandler):
         try:
             self.wfile.write(body)
         except ConnectionError:
-            pass                                  # the client gave up (the timeout test)
+            pass  # the client gave up (the timeout test)
 
     def do_GET(self):
         self._json({"models": [{"name": m} for m in self.models]})
@@ -83,7 +85,12 @@ class StubOllama(BaseHTTPRequestHandler):
             time.sleep(1.5)
         if self.mode == "missing":
             return self._json({"error": f"model '{body['model']}' not found"}, 404)
-        self._json({"message": {"role": "assistant", "content": "hello from the stub"}, "done": True})
+        self._json(
+            {
+                "message": {"role": "assistant", "content": "hello from the stub"},
+                "done": True,
+            }
+        )
 
 
 class OllamaClientTest(unittest.TestCase):
@@ -103,7 +110,9 @@ class OllamaClientTest(unittest.TestCase):
     def test_a_successful_request(self):
         llm = Ollama(self.url, "gemma3:1b", 5)
         self.assertIsNone(llm.check())
-        self.assertEqual(llm.chat([{"role": "user", "content": "hi"}]), "hello from the stub")
+        self.assertEqual(
+            llm.chat([{"role": "user", "content": "hi"}]), "hello from the stub"
+        )
 
     def test_a_missing_model_says_how_to_get_it(self):
         StubOllama.mode, StubOllama.models = "missing", ["llama3.2:1b"]
@@ -113,7 +122,7 @@ class OllamaClientTest(unittest.TestCase):
         self.assertIn("ollama pull gemma3:1b", str(caught.exception))
 
     def test_ollama_not_running(self):
-        llm = Ollama("http://127.0.0.1:9", "gemma3:1b", 5)          # nothing listens on port 9
+        llm = Ollama("http://127.0.0.1:9", "gemma3:1b", 5)  # nothing listens on port 9
         with self.assertRaises(OllamaError) as caught:
             llm.chat([{"role": "user", "content": "hi"}])
         self.assertIn("not running", str(caught.exception))
@@ -126,11 +135,13 @@ class OllamaClientTest(unittest.TestCase):
         self.assertIn("took more than", str(caught.exception))
         StubOllama.mode = "ok"
         start = time.monotonic()
-        with self.assertRaises(OllamaError):                         # still failing for RECHECK seconds...
+        with self.assertRaises(OllamaError):  # still failing for RECHECK seconds...
             llm.chat([{"role": "user", "content": "hi"}])
-        self.assertLess(time.monotonic() - start, 0.1)               # ...without another request
+        self.assertLess(time.monotonic() - start, 0.1)  # ...without another request
         llm.failed_at -= gemma.RECHECK
-        self.assertEqual(llm.chat([{"role": "user", "content": "hi"}]), "hello from the stub")
+        self.assertEqual(
+            llm.chat([{"role": "user", "content": "hi"}]), "hello from the stub"
+        )
 
     def test_only_this_computer(self):
         with self.assertRaises(ValueError):
@@ -139,16 +150,27 @@ class OllamaClientTest(unittest.TestCase):
 
 class EngineSelectionTest(unittest.TestCase):
     def pick(self, **changes):
-        with mock.patch.object(engines, "settings", dataclasses.replace(engines.settings, **changes)), \
-                mock.patch.object(Ollama, "warm"):
+        with (
+            mock.patch.object(
+                engines, "settings", dataclasses.replace(engines.settings, **changes)
+            ),
+            mock.patch.object(Ollama, "warm"),
+        ):
             return engines.get_engine()
 
     def test_engines(self):
         self.assertIs(type(self.pick(engine="local")), LocalEngine)
-        chosen = self.pick(engine="gemma", ollama_url="http://127.0.0.1:11434", ollama_model="gemma3:1b")
+        chosen = self.pick(
+            engine="gemma",
+            ollama_url="http://127.0.0.1:11434",
+            ollama_model="gemma3:1b",
+        )
         self.assertIs(type(chosen), GemmaEngine)
         self.assertEqual((chosen.name, chosen.llm.model), ("gemma", "gemma3:1b"))
-        self.assertIs(type(self.pick(engine="gemma", ollama_url="http://10.0.0.5:11434")), LocalEngine)   # not local: off
+        self.assertIs(
+            type(self.pick(engine="gemma", ollama_url="http://10.0.0.5:11434")),
+            LocalEngine,
+        )  # not local: off
         self.assertIs(type(self.pick(engine="banana")), LocalEngine)
 
 
@@ -156,35 +178,66 @@ class ToolCheckTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from backend.engines.local import analyse
+
         cls.facts = analyse(_cafe(Path(tempfile.mkdtemp())))
 
     def tool(self, message, **data):
-        return parse_tool(json.dumps({"column": "", "stat": "", "bins": 0, **data}), self.facts, message,
-                          data.pop("last", ""))
+        return parse_tool(
+            json.dumps({"column": "", "stat": "", "bins": 0, **data}),
+            self.facts,
+            message,
+            data.pop("last", ""),
+        )
 
     def test_a_good_request_becomes_a_plain_question(self):
-        route = self.tool("whats the priciest unit price", tool="stat", column="unit_price", stat="max")
+        route = self.tool(
+            "whats the priciest unit price",
+            tool="stat",
+            column="unit_price",
+            stat="max",
+        )
         self.assertEqual(route["column"].name, "unit_price")
         self.assertEqual(canonical(route), "what is the highest unit_price?")
-        route = self.tool("draw total with 40 bars", tool="histogram", column="total", bins=40)
+        route = self.tool(
+            "draw total with 40 bars", tool="histogram", column="total", bins=40
+        )
         self.assertEqual(canonical(route), "show the histogram of total with 40 bins")
 
     def test_bad_requests_are_rejected(self):
-        for raw in ("not json", "[]", '{"tool": "drop_column", "column": "total"}', '{"tool": "run_python"}',
-                    '{"tool": "stat", "column": "total", "stat": "variance", "bins": 0}',
-                    '{"tool": "histogram", "column": "total", "stat": "", "bins": true}'):
+        for raw in (
+            "not json",
+            "[]",
+            '{"tool": "drop_column", "column": "total"}',
+            '{"tool": "run_python"}',
+            '{"tool": "stat", "column": "total", "stat": "variance", "bins": 0}',
+            '{"tool": "histogram", "column": "total", "stat": "", "bins": true}',
+        ):
             self.assertIsNone(parse_tool(raw, self.facts, "total"), raw)
-        self.assertIsNone(self.tool("price of gold", tool="stat", column="gold_price", stat="max"))     # no such column
-        self.assertIsNone(self.tool("weather in paris", tool="stat", column="date", stat="min"))       # not in the message
-        self.assertIsNone(self.tool("max please", tool="stat", column="", stat=""))                      # stat without a stat
+        self.assertIsNone(
+            self.tool("price of gold", tool="stat", column="gold_price", stat="max")
+        )  # no such column
+        self.assertIsNone(
+            self.tool("weather in paris", tool="stat", column="date", stat="min")
+        )  # not in the message
+        self.assertIsNone(
+            self.tool("max please", tool="stat", column="", stat="")
+        )  # stat without a stat
 
     def test_numbers_come_from_the_user(self):
-        route = self.tool("thinner bars for total", tool="histogram", column="total", bins=25)
-        self.assertIsNone(route["bins"])                  # the model made up 25; the user wrote no number
+        route = self.tool(
+            "thinner bars for total", tool="histogram", column="total", bins=25
+        )
+        self.assertIsNone(
+            route["bins"]
+        )  # the model made up 25; the user wrote no number
 
     def test_it_means_the_last_column(self):
-        self.assertIsNotNone(self.tool("any gaps in it", tool="missing", column="rating", last="rating"))
-        self.assertIsNone(self.tool("any gaps in it", tool="missing", column="rating", last="total"))
+        self.assertIsNotNone(
+            self.tool("any gaps in it", tool="missing", column="rating", last="rating")
+        )
+        self.assertIsNone(
+            self.tool("any gaps in it", tool="missing", column="rating", last="total")
+        )
 
     def test_numbers_about_the_file_must_come_from_the_facts(self):
         facts = "File cafe.csv: 12063 rows. Data health 64/100. 1,501 cells are empty (1.0%)."
@@ -192,11 +245,20 @@ class ToolCheckTest(unittest.TestCase):
         ok = "It has 12,063 rows and 1501 empty cells. There are 2 reasons, and Python 3 runs it."
         self.assertEqual(check_claims(ok, facts, names), (ok, 0))
         general = "Hold out the last 20% of the timeline. LSTMs often need 1000 steps of history."
-        self.assertEqual(check_claims(general, facts, names), (general, 0))         # general numbers are fine
+        self.assertEqual(
+            check_claims(general, facts, names), (general, 0)
+        )  # general numbers are fine
         made_up = "The average total is 42.7. About 12,000 rows have gaps. A baseline comes first."
-        self.assertEqual(check_claims(made_up, facts, names), ("A baseline comes first.", 2))
-        self.assertEqual(check_claims("Your data gets an R^2 of 0.83.", facts, names), ("", 1))   # never computed
-        self.assertEqual(check_claims("The total column has 7 missing values.", facts, names), ("", 1))  # small, still false
+        self.assertEqual(
+            check_claims(made_up, facts, names), ("A baseline comes first.", 2)
+        )
+        self.assertEqual(
+            check_claims("Your data gets an R^2 of 0.83.", facts, names), ("", 1)
+        )  # never computed
+        self.assertEqual(
+            check_claims("The total column has 7 missing values.", facts, names),
+            ("", 1),
+        )  # small, still false
 
 
 class GemmaChatTest(unittest.TestCase):
@@ -211,63 +273,92 @@ class GemmaChatTest(unittest.TestCase):
         return engine, job, llm, lambda m: asyncio.run(engine.chat(job, m))
 
     def test_why_questions_are_explained_from_the_facts(self):
-        _engine, _job, llm, ask = self.engine(lambda m, s: "Pandas reads the table into a DataFrame so you can filter it.")
+        _engine, _job, llm, ask = self.engine(
+            lambda m, s: "Pandas reads the table into a DataFrame so you can filter it."
+        )
         reply = ask("why do I need pandas?")
         self.assertEqual([r.who for r in reply], ["coder"])
         self.assertIn("DataFrame", reply[0].text)
         system = llm.prompts[-1][0][0]["content"]
-        self.assertRegex(system, r"pandas \(in [^)]*Load and peek")         # read from the generated code
+        self.assertRegex(
+            system, r"pandas \(in [^)]*Load and peek"
+        )  # read from the generated code
         self.assertIn("matplotlib (in Distribution of quantity", system)
         self.assertIn("pip install pandas matplotlib scikit-learn", system)
-        self.assertNotIn("100000", system)                                  # a cell value: rows are never sent
+        self.assertNotIn("100000", system)  # a cell value: rows are never sent
         self.assertLess(len(system), 8000)
 
     def test_made_up_numbers_are_replaced_by_the_rules(self):
-        _, _, _, ask = self.engine(lambda m, s: "The health score is 12 because 4,321 rows are broken.")
+        _, _, _, ask = self.engine(
+            lambda m, s: "The health score is 12 because 4,321 rows are broken."
+        )
         replies = ask("why is the health score so low?")
         self.assertEqual(replies[0].text, lines.CHAT_GEMMA_UNCHECKED)
-        self.assertIn("starts at 100", replies[1].text)                     # the rules' (true) answer
+        self.assertIn("starts at 100", replies[1].text)  # the rules' (true) answer
 
     def test_ollama_down_falls_back_and_says_so_once(self):
         _, _, _, ask = self.engine(lambda m, s: OllamaError("ollama is not running"))
         first = ask("why do I need pandas?")
         self.assertIn("ollama is not running", first[0].text)
-        self.assertIn("pip install", first[1].text)                         # the rules still answer
+        self.assertIn("pip install", first[1].text)  # the rules still answer
         second = ask("why should i drop duplicates?")
         self.assertFalse(any("napping" in r.text for r in second))
 
     def test_a_lookup_is_answered_and_says_how_it_was_read(self):
-        engine, _job, llm, ask = self.engine(lambda m, s: json.dumps(
-            {"tool": "stat", "column": "customer_age", "stat": "min", "bins": 0}))
-        reply = ask("zap me the tiniest age")                               # the rules don't read this one
-        self.assertIsNotNone(llm.prompts[-1][1])                            # asked for JSON with a schema
-        self.assertIn("(reading that as 'what is the lowest customer_age?')", reply[0].text)
-        self.assertIn(f"The lowest customer_age is {engine._facts['j'].cols[8].stats['min']:.0f}", reply[0].text)
+        engine, _job, llm, ask = self.engine(
+            lambda m, s: json.dumps(
+                {"tool": "stat", "column": "customer_age", "stat": "min", "bins": 0}
+            )
+        )
+        reply = ask("zap me the tiniest age")  # the rules don't read this one
+        self.assertIsNotNone(llm.prompts[-1][1])  # asked for JSON with a schema
+        self.assertIn(
+            "(reading that as 'what is the lowest customer_age?')", reply[0].text
+        )
+        self.assertIn(
+            f"The lowest customer_age is {engine._facts['j'].cols[8].stats['min']:.0f}",
+            reply[0].text,
+        )
 
     def test_a_chart_change_is_asked_before_it_is_made(self):
-        _engine, _job, _llm, ask = self.engine(lambda m, s: json.dumps(
-            {"tool": "histogram", "column": "", "stat": "", "bins": 15}))
+        _engine, _job, _llm, ask = self.engine(
+            lambda m, s: json.dumps(
+                {"tool": "histogram", "column": "", "stat": "", "bins": 15}
+            )
+        )
         asked = ask("make it chunkier with 15 slices")
         self.assertEqual(asked[0].choices, ["yes", "no"])
         self.assertIn("show the histogram with 15 bins", asked[0].text)
-        self.assertIsNone(asked[0].card)                                    # nothing changed yet
+        self.assertIsNone(asked[0].card)  # nothing changed yet
         self.assertEqual(ask("no")[0].text, lines.CHAT_NEVERMIND)
         ask("make it chunkier with 15 slices")
         self.assertEqual(ask("yes")[0].card["spec"]["bins"], 15)
 
     def test_a_guess_about_a_made_up_column_asks_instead(self):
-        _, _, _, ask = self.engine(lambda m, s: json.dumps({"tool": "stat", "column": "weather", "stat": "max", "bins": 0}))
-        self.assertEqual(ask("zorp the weather")[0].text, lines.CHAT_CLARIFY)    # no guess, no unrelated hint
+        _, _, _, ask = self.engine(
+            lambda m, s: json.dumps(
+                {"tool": "stat", "column": "weather", "stat": "max", "bins": 0}
+            )
+        )
+        self.assertEqual(
+            ask("zorp the weather")[0].text, lines.CHAT_CLARIFY
+        )  # no guess, no unrelated hint
 
     def test_simple_things_never_wait_for_the_model(self):
         _, _, llm, ask = self.engine(lambda m, s: self.fail("the model was asked"))
         self.assertIn(ask("thank youuu")[0].text, lines.CHAT_THANKS)
-        self.assertIn("The highest quantity is 250", ask("what is the highest quantity?")[0].text)
-        self.assertIn("gemma3:1b", ask("are you an AI?")[0].text)          # honest about the model
+        self.assertIn(
+            "The highest quantity is 250", ask("what is the highest quantity?")[0].text
+        )
+        self.assertIn(
+            "gemma3:1b", ask("are you an AI?")[0].text
+        )  # honest about the model
         self.assertEqual(llm.prompts, [])
 
     def test_general_questions_before_a_file(self):
-        llm = FakeLLM(lambda m, s: "A z-score counts standard deviations from the mean.")
+        llm = FakeLLM(
+            lambda m, s: "A z-score counts standard deviations from the mean."
+        )
         replies = asyncio.run(GemmaEngine(0.01, llm).chat(None, "what is a z-score?"))
         self.assertIn("z-score", replies[0].text)
         self.assertIn("No file", llm.prompts[0][0][0]["content"])
@@ -285,10 +376,19 @@ class GemmaChatTest(unittest.TestCase):
 
     def test_the_api_shape_is_unchanged(self):
         engine, job, _, _ = self.engine(lambda m, s: "fine")
-        with mock.patch.object(api, "engine", engine), mock.patch.object(api.jobs, "get", return_value=job):
-            out = asyncio.run(api.chat(api.ChatIn(job_id="j", message="use 20 bins for the histogram")))
+        with (
+            mock.patch.object(api, "engine", engine),
+            mock.patch.object(api.jobs, "get", return_value=job),
+        ):
+            out = asyncio.run(
+                api.chat(
+                    api.ChatIn(job_id="j", message="use 20 bins for the histogram")
+                )
+            )
         reply = out["replies"][0]
-        self.assertEqual(set(reply), {"from", "reply", "choices", "code", "followup", "card"})
+        self.assertEqual(
+            set(reply), {"from", "reply", "choices", "code", "followup", "card"}
+        )
         self.assertEqual(reply["card"]["spec"]["bins"], 20)
 
 

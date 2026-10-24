@@ -45,7 +45,9 @@ class Job:
             self.events.append(Event(len(self.events), type_, data))
             self._changed.notify_all()
 
-    async def stream(self, start: int = 0, keepalive: float = 15.0) -> AsyncIterator[Event | None]:
+    async def stream(
+        self, start: int = 0, keepalive: float = 15.0
+    ) -> AsyncIterator[Event | None]:
         """Yield events from index `start`; yields None as a keep-alive tick.
 
         Ends once the job is finished and everything has been sent.
@@ -60,7 +62,9 @@ class Job:
             async with self._changed:
                 try:
                     await asyncio.wait_for(
-                        self._changed.wait_for(lambda: len(self.events) > index or self.finished),
+                        self._changed.wait_for(
+                            lambda: len(self.events) > index or self.finished
+                        ),
                         timeout=keepalive,
                     )
                 except TimeoutError:

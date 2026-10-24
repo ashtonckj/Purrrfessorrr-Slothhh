@@ -69,7 +69,9 @@ def copy(grid):
     return [row[:] for row in grid]
 
 
-def stamp(grid, rows: list[str], x: int = 0, y: int = 0, cmap: dict | None = None) -> None:
+def stamp(
+    grid, rows: list[str], x: int = 0, y: int = 0, cmap: dict | None = None
+) -> None:
     """Draw `rows` onto grid at (x, y). '.' is skipped, '_' erases, cmap renames symbols."""
     cmap = cmap or {}
     for dy, row in enumerate(rows):
@@ -146,47 +148,53 @@ def save_strip(frames, path: Path) -> None:
 
 
 def scale_grid(grid, factor: int):
-    return [[ch for ch in row for _ in range(factor)] for row in grid for _ in range(factor)]
+    return [
+        [ch for ch in row for _ in range(factor)] for row in grid for _ in range(factor)
+    ]
 
 
 # ==========================================================================
 # CATS (32x32)
 # ==========================================================================
 
-CAT_HALF = check([
-    "................",
-    "................",
-    "................",
-    "................",
-    "........f.......",
-    "........ff......",
-    "........fpf.....",
-    "........fppf....",
-    ".......fffffffff",
-    "......ffffffffff",
-    "......ffffffffff",
-    ".....fffffffffff",
-    ".....fffffffffff",
-    ".....fffffffffff",
-    ".....fffffffwwww",
-    ".....ffffffwwwww",
-    "......fffffwwwww",
-    ".......ffffwwwww",
-    "........ffffffff",
-    ".........fffffff",
-    "........fffffwww",
-    ".......ffffffwww",
-    "......fffffffwww",
-    "......ffffffwwww",
-    ".....fffffffwwww",
-    ".....fffffffwwww",
-    ".....fffffffwwww",
-    ".....ffffffffwww",
-    ".....fffffffffff",
-    ".....fffffffffff",
-    "................",
-    "................",
-], 16, "cat")
+CAT_HALF = check(
+    [
+        "................",
+        "................",
+        "................",
+        "................",
+        "........f.......",
+        "........ff......",
+        "........fpf.....",
+        "........fppf....",
+        ".......fffffffff",
+        "......ffffffffff",
+        "......ffffffffff",
+        ".....fffffffffff",
+        ".....fffffffffff",
+        ".....fffffffffff",
+        ".....fffffffwwww",
+        ".....ffffffwwwww",
+        "......fffffwwwww",
+        ".......ffffwwwww",
+        "........ffffffff",
+        ".........fffffff",
+        "........fffffwww",
+        ".......ffffffwww",
+        "......fffffffwww",
+        "......ffffffwwww",
+        ".....fffffffwwww",
+        ".....fffffffwwww",
+        ".....fffffffwwww",
+        ".....ffffffffwww",
+        ".....fffffffffff",
+        ".....fffffffffff",
+        "................",
+        "................",
+    ],
+    16,
+    "cat",
+)
 CAT_BASE = sym(CAT_HALF)
 
 TAIL_A = [
@@ -236,14 +244,20 @@ QUESTION = [
 ]
 
 # --- accessories -----------------------------------------------------------
-DEERSTALKER = sym(check([
-    "..........BBBBBB",
-    "........BBbBBbBB",
-    ".......BbBBbBBbB",
-    "......BBBbBBbBBb",
-    "......BBBBBBBBBB",
-    ".....bbbbbbbbbbb",
-], 16, "deerstalker"))
+DEERSTALKER = sym(
+    check(
+        [
+            "..........BBBBBB",
+            "........BBbBBbBB",
+            ".......BbBBbBBbB",
+            "......BBBbBBbBBb",
+            "......BBBBBBBBBB",
+            ".....bbbbbbbbbbb",
+        ],
+        16,
+        "deerstalker",
+    )
+)
 
 BERET = [
     "...............bb...............",
@@ -254,18 +268,24 @@ BERET = [
     "........RRRRRRRRRRRRRRRRRRR.....",
 ]
 
-HEADPHONES = sym(check([
-    ".........GGGGGGG",
-    ".......GG.......",
-    "......G.........",
-    ".....G..........",
-    "....G...........",
-    "....G...........",
-    "...GGG..........",
-    "...GGG..........",
-    "...GGG..........",
-    "...GGG..........",
-], 16, "headphones"))
+HEADPHONES = sym(
+    check(
+        [
+            ".........GGGGGGG",
+            ".......GG.......",
+            "......G.........",
+            ".....G..........",
+            "....G...........",
+            "....G...........",
+            "...GGG..........",
+            "...GGG..........",
+            "...GGG..........",
+            "...GGG..........",
+        ],
+        16,
+        "headphones",
+    )
+)
 
 BANDANA = [
     ".......GGGGGGGGGGGGGGGGGG.......",
@@ -349,16 +369,32 @@ LAPTOP = [
 # cmap: base symbols -> palette.  hat / tool / extra: (rows, x, y).
 CATS = {
     "detective": {
-        "label": "Detective Cat", "color": "#c79a6b",
+        "label": "Detective Cat",
+        "color": "#c79a6b",
         "cmap": {"f": "T", "w": "C", "p": "p"},
-        "marks": ([(12, 9), (12, 10), (15, 9), (15, 10), (6, 13), (7, 13), (7, 22), (8, 22), (7, 25), (8, 25)], "B"),
+        "marks": (
+            [
+                (12, 9),
+                (12, 10),
+                (15, 9),
+                (15, 10),
+                (6, 13),
+                (7, 13),
+                (7, 22),
+                (8, 22),
+                (7, 25),
+                (8, 25),
+            ],
+            "B",
+        ),
         "hat": (DEERSTALKER, 0, 3),
         "tool": (MAGNIFIER, 1, 15),
         "eyes": ("W", "K"),
         "paw_y": 21,
     },
     "artist": {
-        "label": "Artist Cat", "color": "#f6c1cc",
+        "label": "Artist Cat",
+        "color": "#f6c1cc",
         "cmap": {"f": "W", "w": "C", "p": "p"},
         "patches": [((6, 8, 12, 13), "O"), ((21, 20, 24, 23), "O")],
         "hat": (BERET, 0, 2),
@@ -367,7 +403,8 @@ CATS = {
         "paw_y": 21,
     },
     "scribe": {
-        "label": "Scribe Cat", "color": "#9a948c",
+        "label": "Scribe Cat",
+        "color": "#9a948c",
         "cmap": {"f": "S", "w": "C", "p": "p"},
         "glasses": True,
         "tool": (QUILL, 2, 15),
@@ -375,7 +412,8 @@ CATS = {
         "paw_y": 21,
     },
     "coder": {
-        "label": "Coder Cat", "color": "#4a4250",
+        "label": "Coder Cat",
+        "color": "#4a4250",
         "cmap": {"f": "D", "w": "S", "p": "P"},
         "hat": (HEADPHONES, 0, 5),
         "extra": (LAPTOP, 6, 22),
@@ -383,9 +421,13 @@ CATS = {
         "paw_y": 19,
     },
     "janitor": {
-        "label": "Janitor Cat", "color": "#e08a3c",
+        "label": "Janitor Cat",
+        "color": "#e08a3c",
         "cmap": {"f": "O", "w": "C", "p": "p"},
-        "marks": ([(12, 10), (15, 10), (6, 13), (7, 13), (7, 22), (8, 22), (7, 25), (8, 25)], "B"),
+        "marks": (
+            [(12, 10), (15, 10), (6, 13), (7, 13), (7, 22), (8, 22), (7, 25), (8, 25)],
+            "B",
+        ),
         "hat": (BANDANA, 0, 8),
         "tool": (BROOM, 0, 9),
         "eyes": ("W", "K"),
@@ -414,7 +456,20 @@ def cat_eyes(g, style: str, colors: tuple[str, str]) -> None:
         elif style == "happy":
             pixels(g, [(x - 1, 13), (x, 12), (x + 1, 12), (x + 2, 13)], "K")
     if style == "confused":
-        pixels(g, [(9, 11), (10, 11), (11, 11), (9, 13), (10, 13), (11, 13), (9, 12), (11, 12)], "K")
+        pixels(
+            g,
+            [
+                (9, 11),
+                (10, 11),
+                (11, 11),
+                (9, 13),
+                (10, 13),
+                (11, 13),
+                (9, 12),
+                (11, 12),
+            ],
+            "K",
+        )
         g[12][10] = "W"
         g[12][20] = g[13][20] = "K"
 
@@ -426,7 +481,20 @@ def cat_mouth(g, style: str) -> None:
     elif style == "flat":
         pixels(g, [(15, 17), (16, 17)], "K")
     elif style == "open":
-        pixels(g, [(14, 16), (15, 16), (16, 16), (17, 16), (14, 17), (17, 17), (15, 18), (16, 18)], "K")
+        pixels(
+            g,
+            [
+                (14, 16),
+                (15, 16),
+                (16, 16),
+                (17, 16),
+                (14, 17),
+                (17, 17),
+                (15, 18),
+                (16, 18),
+            ],
+            "K",
+        )
         pixels(g, [(15, 17), (16, 17)], "P")
     elif style == "wavy":
         pixels(g, [(13, 17), (14, 16), (15, 17), (16, 16), (17, 17), (18, 16)], "K")
@@ -436,8 +504,15 @@ def draw_cat(cat: str, state: str, frame: int, with_tool: bool = True):
     spec = CATS[cat]
     g = blank(32, 32)
     stamp(g, CAT_BASE, cmap=spec["cmap"])
-    stamp(g, TAIL_B if (state == "idle" and frame == 2) or (state == "done" and frame == 1) else TAIL_A,
-          23, 19, cmap=spec["cmap"])
+    stamp(
+        g,
+        TAIL_B
+        if (state == "idle" and frame == 2) or (state == "done" and frame == 1)
+        else TAIL_A,
+        23,
+        19,
+        cmap=spec["cmap"],
+    )
     if "marks" in spec:
         pts, col = spec["marks"]
         pixels(g, pts, col, mirror_w=32)
@@ -513,46 +588,67 @@ def draw_cat(cat: str, state: str, frame: int, with_tool: bool = True):
 # SLOTH (32x32)
 # ==========================================================================
 
-SLOTH_HALF = check([
-    "................",
-    "................",
-    "................",
-    "..........ffffff",
-    "........ffffffff",
-    ".......fffffffff",
-    "......ffffffffff",
-    ".....fffffffffff",
-    ".....fffffmmmmmm",
-    "....ffffmmmmmmmm",
-    "....fffmmmmmmmmm",
-    "....ffmmmmmmmmmm",
-    "....ffmmmmmmmmmm",
-    "....ffmmmmmmmmmm",
-    "....fffmmmmmmmmm",
-    ".....ffmmmmmmmmm",
-    ".....fffmmmmmmmm",
-    "......fffmmmmmmm",
-    ".......fffffffff",
-    "......ffffffffff",
-    ".....fffffffffff",
-    "....fffffffyyyyy",
-    "...ffffffffyyyyy",
-    "..fff.fffffyyyyy",
-    "..ff..ffffyyyyyy",
-    "..ff..ffffyyyyyy",
-    "..ff..ffffyyyyyy",
-    "..ff..ffffyyyyyy",
-    "..cc..fffffyyyyy",
-    "..c.c.ffffffffff",
-    "................",
-    "................",
-], 16, "sloth")
+SLOTH_HALF = check(
+    [
+        "................",
+        "................",
+        "................",
+        "..........ffffff",
+        "........ffffffff",
+        ".......fffffffff",
+        "......ffffffffff",
+        ".....fffffffffff",
+        ".....fffffmmmmmm",
+        "....ffffmmmmmmmm",
+        "....fffmmmmmmmmm",
+        "....ffmmmmmmmmmm",
+        "....ffmmmmmmmmmm",
+        "....ffmmmmmmmmmm",
+        "....fffmmmmmmmmm",
+        ".....ffmmmmmmmmm",
+        ".....fffmmmmmmmm",
+        "......fffmmmmmmm",
+        ".......fffffffff",
+        "......ffffffffff",
+        ".....fffffffffff",
+        "....fffffffyyyyy",
+        "...ffffffffyyyyy",
+        "..fff.fffffyyyyy",
+        "..ff..ffffyyyyyy",
+        "..ff..ffffyyyyyy",
+        "..ff..ffffyyyyyy",
+        "..ff..ffffyyyyyy",
+        "..cc..fffffyyyyy",
+        "..c.c.ffffffffff",
+        "................",
+        "................",
+    ],
+    16,
+    "sloth",
+)
 SLOTH_BASE = sym(SLOTH_HALF)
 SLOTH_CMAP = {"f": "B", "m": "C", "y": "T", "c": "c"}
-SLOTH_PATCH = [(9, 11), (10, 11), (11, 11), (12, 11),
-               (8, 12), (9, 12), (10, 12), (11, 12), (12, 12),
-               (7, 13), (8, 13), (9, 13), (10, 13), (11, 13), (12, 13),
-               (7, 14), (8, 14), (9, 14), (10, 14)]
+SLOTH_PATCH = [
+    (9, 11),
+    (10, 11),
+    (11, 11),
+    (12, 11),
+    (8, 12),
+    (9, 12),
+    (10, 12),
+    (11, 12),
+    (12, 12),
+    (7, 13),
+    (8, 13),
+    (9, 13),
+    (10, 13),
+    (11, 13),
+    (12, 13),
+    (7, 14),
+    (8, 14),
+    (9, 14),
+    (10, 14),
+]
 
 SLOTH_STATES = {
     "idle": (4, 2),
@@ -570,13 +666,24 @@ def sloth_eyes(g, style: str) -> None:
             pixels(g, [(x + 1, 13)], "K", mirror_w=32)
             pixels(g, [(x, 13)], "W", mirror_w=32)
         elif style == "closed":
-            pixels(g, [(x - 1, 13), (x, 13), (x + 1, 13), (x + 2, 13)], "K", mirror_w=32)
+            pixels(
+                g, [(x - 1, 13), (x, 13), (x + 1, 13), (x + 2, 13)], "K", mirror_w=32
+            )
         elif style == "asleep":
-            pixels(g, [(x - 1, 12), (x, 13), (x + 1, 13), (x + 2, 12)], "K", mirror_w=32)
+            pixels(
+                g, [(x - 1, 12), (x, 13), (x + 1, 13), (x + 2, 12)], "K", mirror_w=32
+            )
         elif style == "happy":
-            pixels(g, [(x - 1, 13), (x, 12), (x + 1, 12), (x + 2, 13)], "K", mirror_w=32)
+            pixels(
+                g, [(x - 1, 13), (x, 12), (x + 1, 12), (x + 2, 13)], "K", mirror_w=32
+            )
         elif style == "grumpy":
-            pixels(g, [(x - 1, 12), (x, 12), (x + 1, 12), (x + 2, 12), (x, 13), (x + 1, 13)], "K", mirror_w=32)
+            pixels(
+                g,
+                [(x - 1, 12), (x, 12), (x + 1, 12), (x + 2, 12), (x, 13), (x + 1, 13)],
+                "K",
+                mirror_w=32,
+            )
             pixels(g, [(9, 9), (10, 9), (11, 10), (12, 10)], "K", mirror_w=32)
 
 
@@ -630,7 +737,7 @@ def draw_sloth(state: str, frame: int):
         pixels(g, puff, "S")
         g = shift(g, frame, 0)
     if state == "happy":
-        for x, y in ([(3, 5), (28, 7)] if frame == 0 else [(2, 9), (29, 4)]):
+        for x, y in [(3, 5), (28, 7)] if frame == 0 else [(2, 9), (29, 4)]:
             pixels(g, [(x, y), (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)], "Y")
     return g
 
@@ -680,15 +787,15 @@ def draw_paper_stack():
 def draw_desk(w: int):
     g = blank(w, 24)
     rect(g, 1, 4, w - 2, 7, "T")
-    rect(g, 1, 4, w - 2, 4, "Y")       # sunlit edge
-    rect(g, 2, 8, w - 3, 8, "b")       # lip shadow
+    rect(g, 1, 4, w - 2, 4, "Y")  # sunlit edge
+    rect(g, 2, 8, w - 3, 8, "b")  # lip shadow
     rect(g, 3, 9, w - 4, 20, "B")
     half = (w - 8) // 2
     for x0 in (6, 6 + half):
         x1 = x0 + half - 6
         rect(g, x0, 11, x1, 17, "b")
         rect(g, x0 + 1, 12, x1 - 1, 16, "B")
-        g[14][(x0 + x1) // 2] = "Y"      # knob
+        g[14][(x0 + x1) // 2] = "Y"  # knob
     rect(g, 3, 21, 6, 22, "B")
     rect(g, w - 7, 21, w - 4, 22, "B")
     return outline(g)
@@ -725,78 +832,90 @@ def draw_zzz(frame: int):
 
 
 RUN_FRAMES = [
-    ([
-        "................",
-        "................",
-        "................",
-        "................",
-        ".f........f..f..",
-        ".f........ffff..",
-        "..f.......fffff.",
-        "..ffffffffffff..",
-        "...ffffffffff...",
-        "...wwwwwwwwww...",
-        "..ff.......ff...",
-        ".ff.........ff..",
-        "................",
-        "................",
-        "................",
-        "................",
-    ], 6),
-    ([
-        "................",
-        "................",
-        "................",
-        "................",
-        "..........f..f..",
-        "..........ffff..",
-        ".ff.......fffff.",
-        "...fffffffffff..",
-        "...ffffffffff...",
-        "...wwwwwwwwww...",
-        "...ff......ff...",
-        "....f.......f...",
-        "................",
-        "................",
-        "................",
-        "................",
-    ], 6),
-    ([
-        "................",
-        "................",
-        "................",
-        "..........f..f..",
-        "..........ffff..",
-        ".f........fffff.",
-        "..ffffffffffff..",
-        "...ffffffffff...",
-        "...wwwwwwwwww...",
-        ".....ff..ff.....",
-        ".....f....f.....",
-        "................",
-        "................",
-        "................",
-        "................",
-        "................",
-    ], 5),
-    ([
-        "................",
-        "................",
-        "................",
-        "................",
-        "..........f..f..",
-        "..........ffff..",
-        ".ff.......fffff.",
-        "...fffffffffff..",
-        "...ffffffffff...",
-        "...wwwwwwwwww...",
-        "....ff....ff....",
-        "....f......f....",
-        "................",
-        "................",
-        "................",
-        "................",
-    ], 6),
+    (
+        [
+            "................",
+            "................",
+            "................",
+            "................",
+            ".f........f..f..",
+            ".f........ffff..",
+            "..f.......fffff.",
+            "..ffffffffffff..",
+            "...ffffffffff...",
+            "...wwwwwwwwww...",
+            "..ff.......ff...",
+            ".ff.........ff..",
+            "................",
+            "................",
+            "................",
+            "................",
+        ],
+        6,
+    ),
+    (
+        [
+            "................",
+            "................",
+            "................",
+            "................",
+            "..........f..f..",
+            "..........ffff..",
+            ".ff.......fffff.",
+            "...fffffffffff..",
+            "...ffffffffff...",
+            "...wwwwwwwwww...",
+            "...ff......ff...",
+            "....f.......f...",
+            "................",
+            "................",
+            "................",
+            "................",
+        ],
+        6,
+    ),
+    (
+        [
+            "................",
+            "................",
+            "................",
+            "..........f..f..",
+            "..........ffff..",
+            ".f........fffff.",
+            "..ffffffffffff..",
+            "...ffffffffff...",
+            "...wwwwwwwwww...",
+            ".....ff..ff.....",
+            ".....f....f.....",
+            "................",
+            "................",
+            "................",
+            "................",
+            "................",
+        ],
+        5,
+    ),
+    (
+        [
+            "................",
+            "................",
+            "................",
+            "................",
+            "..........f..f..",
+            "..........ffff..",
+            ".ff.......fffff.",
+            "...fffffffffff..",
+            "...ffffffffff...",
+            "...wwwwwwwwww...",
+            "....ff....ff....",
+            "....f......f....",
+            "................",
+            "................",
+            "................",
+            "................",
+        ],
+        6,
+    ),
 ]
 
 SIT_FRAMES = [
@@ -861,36 +980,45 @@ def draw_sit(frame: int):
 # AVATARS (48x48 = a 24x24 drawing at 2x)
 # ==========================================================================
 
-USER_HALF = check([
-    "............",
-    "............",
-    "............",
-    ".......hhhhh",
-    ".....hhhhhhh",
-    "....hhhhhhhh",
-    "....hhhhhhhh",
-    "...hhhhsssss",
-    "...hhhssssss",
-    "...hhsssssss",
-    "...hhsssssss",
-    "...hssssssss",
-    "....ssssssss",
-    "....ssssssss",
-    ".....sssssss",
-    "......ssssss",
-    ".......sssss",
-    "........ssss",
-    ".....ppppppp",
-    "...ppppppppp",
-    "..pppppppppp",
-    ".ppppppppppp",
-    ".ppppppppppp",
-    ".ppppppppppp",
-], 12, "user")
+USER_HALF = check(
+    [
+        "............",
+        "............",
+        "............",
+        ".......hhhhh",
+        ".....hhhhhhh",
+        "....hhhhhhhh",
+        "....hhhhhhhh",
+        "...hhhhsssss",
+        "...hhhssssss",
+        "...hhsssssss",
+        "...hhsssssss",
+        "...hssssssss",
+        "....ssssssss",
+        "....ssssssss",
+        ".....sssssss",
+        "......ssssss",
+        ".......sssss",
+        "........ssss",
+        ".....ppppppp",
+        "...ppppppppp",
+        "..pppppppppp",
+        ".ppppppppppp",
+        ".ppppppppppp",
+        ".ppppppppppp",
+    ],
+    12,
+    "user",
+)
 
 AVATAR_BG = {
-    "sloth": "l", "detective": "c", "artist": "p", "scribe": "U",
-    "coder": "g", "janitor": "Y", "user": "T",
+    "sloth": "l",
+    "detective": "c",
+    "artist": "p",
+    "scribe": "U",
+    "coder": "g",
+    "janitor": "Y",
+    "user": "T",
 }
 
 
@@ -1184,9 +1312,19 @@ def draw_icon(name: str):
 
 def build_registry():
     """Yield (id, entry, frames). Entry is the manifest record."""
+
     def entry(file, w, h, n, fps, group, label, color, used):
-        return {"file": file, "frameWidth": w, "frameHeight": h, "frameCount": n, "fps": fps,
-                "group": group, "label": label, "color": color, "usedIn": used}
+        return {
+            "file": file,
+            "frameWidth": w,
+            "frameHeight": h,
+            "frameCount": n,
+            "fps": fps,
+            "group": group,
+            "label": label,
+            "color": color,
+            "usedIn": used,
+        }
 
     sloth_used = {
         "idle": "Professor's desk while waiting",
@@ -1196,10 +1334,21 @@ def build_registry():
         "grumpy": "Professor's desk when health score < 40",
     }
     for state, (n, fps) in SLOTH_STATES.items():
-        yield (f"sloth_{state}",
-               entry(f"sprites/sloth/sloth_{state}.png", 32, 32, n, fps, "sloth", "Prof. Slothhh", "#8a5a3b",
-                     sloth_used[state]),
-               [draw_sloth(state, i) for i in range(n)])
+        yield (
+            f"sloth_{state}",
+            entry(
+                f"sprites/sloth/sloth_{state}.png",
+                32,
+                32,
+                n,
+                fps,
+                "sloth",
+                "Prof. Slothhh",
+                "#8a5a3b",
+                sloth_used[state],
+            ),
+            [draw_sloth(state, i) for i in range(n)],
+        )
 
     cat_used = {
         "idle": "cat desk before / between jobs",
@@ -1209,75 +1358,266 @@ def build_registry():
     }
     for cat, spec in CATS.items():
         for state, (n, fps) in CAT_STATES.items():
-            yield (f"{cat}_{state}",
-                   entry(f"sprites/cats/{cat}_{state}.png", 32, 32, n, fps, "cats", spec["label"], spec["color"],
-                         cat_used[state]),
-                   [draw_cat(cat, state, i) for i in range(n)])
+            yield (
+                f"{cat}_{state}",
+                entry(
+                    f"sprites/cats/{cat}_{state}.png",
+                    32,
+                    32,
+                    n,
+                    fps,
+                    "cats",
+                    spec["label"],
+                    spec["color"],
+                    cat_used[state],
+                ),
+                [draw_cat(cat, state, i) for i in range(n)],
+            )
 
-    yield ("paper", entry("sprites/props/paper.png", 16, 16, 2, 6, "props", "paper", "#fffaf0",
-                          "papers flying sloth -> cats, and the piles on each desk"),
-           [draw_paper(i) for i in range(2)])
-    yield ("paper_stack", entry("sprites/props/paper_stack.png", 24, 24, 1, 1, "props", "stack", "#e3d3b0",
-                                "the big pile on the professor's desk"),
-           [draw_paper_stack()])
-    yield ("desk", entry("sprites/props/desk.png", 48, 24, 1, 1, "props", "desk", "#8a5a3b",
-                         "in front of each cat"), [draw_desk(48)])
-    yield ("desk_sloth", entry("sprites/props/desk_sloth.png", 64, 24, 1, 1, "props", "big desk", "#8a5a3b",
-                               "in front of the professor"), [draw_desk(64)])
-    yield ("branch", entry("sprites/props/branch.png", 64, 16, 2, 1, "props", "branch", "#5f8f4e",
-                           "decoration above the professor"), [draw_branch(i) for i in range(2)])
-    yield ("zzz", entry("sprites/props/zzz.png", 16, 16, 3, 2, "props", "zzz", "#fffaf0",
-                        "above the sloth while sleeping"), [draw_zzz(i) for i in range(3)])
-    yield ("progress_cat_run", entry("sprites/props/progress_cat_run.png", 16, 16, 4, 10, "props", "runner",
-                                     "#e08a3c", "runs along each progress bar"), [draw_run(i) for i in range(4)])
-    yield ("progress_cat_sit", entry("sprites/props/progress_cat_sit.png", 16, 16, 2, 2, "props", "sitter",
-                                     "#e08a3c", "sits at the end of a finished progress bar (with check icon)"),
-           [draw_sit(i) for i in range(2)])
+    yield (
+        "paper",
+        entry(
+            "sprites/props/paper.png",
+            16,
+            16,
+            2,
+            6,
+            "props",
+            "paper",
+            "#fffaf0",
+            "papers flying sloth -> cats, and the piles on each desk",
+        ),
+        [draw_paper(i) for i in range(2)],
+    )
+    yield (
+        "paper_stack",
+        entry(
+            "sprites/props/paper_stack.png",
+            24,
+            24,
+            1,
+            1,
+            "props",
+            "stack",
+            "#e3d3b0",
+            "the big pile on the professor's desk",
+        ),
+        [draw_paper_stack()],
+    )
+    yield (
+        "desk",
+        entry(
+            "sprites/props/desk.png",
+            48,
+            24,
+            1,
+            1,
+            "props",
+            "desk",
+            "#8a5a3b",
+            "in front of each cat",
+        ),
+        [draw_desk(48)],
+    )
+    yield (
+        "desk_sloth",
+        entry(
+            "sprites/props/desk_sloth.png",
+            64,
+            24,
+            1,
+            1,
+            "props",
+            "big desk",
+            "#8a5a3b",
+            "in front of the professor",
+        ),
+        [draw_desk(64)],
+    )
+    yield (
+        "branch",
+        entry(
+            "sprites/props/branch.png",
+            64,
+            16,
+            2,
+            1,
+            "props",
+            "branch",
+            "#5f8f4e",
+            "decoration above the professor",
+        ),
+        [draw_branch(i) for i in range(2)],
+    )
+    yield (
+        "zzz",
+        entry(
+            "sprites/props/zzz.png",
+            16,
+            16,
+            3,
+            2,
+            "props",
+            "zzz",
+            "#fffaf0",
+            "above the sloth while sleeping",
+        ),
+        [draw_zzz(i) for i in range(3)],
+    )
+    yield (
+        "progress_cat_run",
+        entry(
+            "sprites/props/progress_cat_run.png",
+            16,
+            16,
+            4,
+            10,
+            "props",
+            "runner",
+            "#e08a3c",
+            "runs along each progress bar",
+        ),
+        [draw_run(i) for i in range(4)],
+    )
+    yield (
+        "progress_cat_sit",
+        entry(
+            "sprites/props/progress_cat_sit.png",
+            16,
+            16,
+            2,
+            2,
+            "props",
+            "sitter",
+            "#e08a3c",
+            "sits at the end of a finished progress bar (with check icon)",
+        ),
+        [draw_sit(i) for i in range(2)],
+    )
 
     avatar_used = "chat bubbles and the results drawer header"
-    yield ("avatar_sloth", entry("avatars/sloth.png", 48, 48, 1, 1, "avatars", "Slothhh", "#a8c686",
-                                 avatar_used + "; chat header"),
-           [avatar_from(draw_sloth("idle", 0), 4, 2, AVATAR_BG["sloth"])])
+    yield (
+        "avatar_sloth",
+        entry(
+            "avatars/sloth.png",
+            48,
+            48,
+            1,
+            1,
+            "avatars",
+            "Slothhh",
+            "#a8c686",
+            avatar_used + "; chat header",
+        ),
+        [avatar_from(draw_sloth("idle", 0), 4, 2, AVATAR_BG["sloth"])],
+    )
     for cat, spec in CATS.items():
-        yield (f"avatar_{cat}", entry(f"avatars/{cat}.png", 48, 48, 1, 1, "avatars", spec["label"], spec["color"],
-                                      avatar_used),
-               [avatar_from(draw_cat(cat, "idle", 0, with_tool=False), 4, 2, AVATAR_BG[cat])])
-    yield ("avatar_user", entry("avatars/user.png", 48, 48, 1, 1, "avatars", "You", "#c79a6b",
-                                "your chat bubbles"), [draw_user_avatar()])
+        yield (
+            f"avatar_{cat}",
+            entry(
+                f"avatars/{cat}.png",
+                48,
+                48,
+                1,
+                1,
+                "avatars",
+                spec["label"],
+                spec["color"],
+                avatar_used,
+            ),
+            [
+                avatar_from(
+                    draw_cat(cat, "idle", 0, with_tool=False), 4, 2, AVATAR_BG[cat]
+                )
+            ],
+        )
+    yield (
+        "avatar_user",
+        entry(
+            "avatars/user.png",
+            48,
+            48,
+            1,
+            1,
+            "avatars",
+            "You",
+            "#c79a6b",
+            "your chat bubbles",
+        ),
+        [draw_user_avatar()],
+    )
 
     icon_used = {
-        "send": "chat send button", "paperclip": "chat attach button", "upload": "drop zone",
-        "download": "download buttons", "copy": "copy code button", "check": "finished progress bars, copied",
-        "warning": "error states, warnings in cards", "file": "uploaded file bubble", "gear": "settings button",
-        "close": "close drawer / dialogs", "chevron": "accordion cards", "moon": "night mode toggle",
-        "sun": "day mode toggle", "sound_on": "sound toggle", "sound_off": "sound toggle (muted)",
-        "magnifier": "Detective Cat chat messages", "brush": "Artist Cat chat messages",
-        "quill": "Scribe Cat chat messages", "laptop": "Coder Cat chat messages",
+        "send": "chat send button",
+        "paperclip": "chat attach button",
+        "upload": "drop zone",
+        "download": "download buttons",
+        "copy": "copy code button",
+        "check": "finished progress bars, copied",
+        "warning": "error states, warnings in cards",
+        "file": "uploaded file bubble",
+        "gear": "settings button",
+        "close": "close drawer / dialogs",
+        "chevron": "accordion cards",
+        "moon": "night mode toggle",
+        "sun": "day mode toggle",
+        "sound_on": "sound toggle",
+        "sound_off": "sound toggle (muted)",
+        "magnifier": "Detective Cat chat messages",
+        "brush": "Artist Cat chat messages",
+        "quill": "Scribe Cat chat messages",
+        "laptop": "Coder Cat chat messages",
         "broom": "Janitor Cat chat messages",
     }
     for name in ICONS:
-        yield (f"icon_{name}", entry(f"ui/icon_{name}.png", 16, 16, 1, 1, "ui", name, "#9a948c", icon_used[name]),
-               [draw_icon(name)])
+        yield (
+            f"icon_{name}",
+            entry(
+                f"ui/icon_{name}.png",
+                16,
+                16,
+                1,
+                1,
+                "ui",
+                name,
+                "#9a948c",
+                icon_used[name],
+            ),
+            [draw_icon(name)],
+        )
 
 
 def write_assets_table(manifest: dict) -> None:
     if not ASSETS_MD.exists():
         return
-    lines = ["| id | file | frame size | frames | fps | where it appears |", "|---|---|---|---|---|---|"]
+    lines = [
+        "| id | file | frame size | frames | fps | where it appears |",
+        "|---|---|---|---|---|---|",
+    ]
     for sid, e in manifest["sprites"].items():
-        lines.append(f"| `{sid}` | `{e['file']}` | {e['frameWidth']}x{e['frameHeight']} | {e['frameCount']} "
-                     f"| {e['fps']} | {e.get('usedIn', '')} |")
+        lines.append(
+            f"| `{sid}` | `{e['file']}` | {e['frameWidth']}x{e['frameHeight']} | {e['frameCount']} "
+            f"| {e['fps']} | {e.get('usedIn', '')} |"
+        )
     text = ASSETS_MD.read_text(encoding="utf-8")
     start, end = "<!-- sprite-table:start -->", "<!-- sprite-table:end -->"
     if start in text and end in text:
         head, rest = text.split(start, 1)
         _, tail = rest.split(end, 1)
-        ASSETS_MD.write_text(head + start + "\n" + "\n".join(lines) + "\n" + end + tail, encoding="utf-8")
+        ASSETS_MD.write_text(
+            head + start + "\n" + "\n".join(lines) + "\n" + end + tail, encoding="utf-8"
+        )
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--force", action="store_true", help="overwrite existing PNGs and manifest entries")
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="overwrite existing PNGs and manifest entries",
+    )
     args = ap.parse_args()
 
     old = json.loads(MANIFEST.read_text(encoding="utf-8")) if MANIFEST.exists() else {}
@@ -1298,14 +1638,16 @@ def main() -> None:
 
     manifest = {
         "_readme": "Sprite sheets are horizontal strips of equal frames. Edit numbers here if you replace a PNG. "
-                   "See ASSETS.md.",
+        "See ASSETS.md.",
         "version": 1,
         "palette": PALETTE,
         "sprites": sprites,
     }
     MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     write_assets_table(manifest)
-    print(f"wrote {written} sprite sheets, kept {kept} existing, manifest has {len(sprites)} entries")
+    print(
+        f"wrote {written} sprite sheets, kept {kept} existing, manifest has {len(sprites)} entries"
+    )
 
 
 if __name__ == "__main__":

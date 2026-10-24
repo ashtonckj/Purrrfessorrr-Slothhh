@@ -26,6 +26,5 @@ def split_papers(total: int) -> dict[str, int]:
     """Share papers between the cats so every cat gets a visible pile (at least 1)."""
     base, extra = divmod(total, len(CAT_IDS))
     return {
-        cat: max(1, base + (1 if i < extra else 0))
-        for i, cat in enumerate(CAT_IDS)
+        cat: max(1, base + (1 if i < extra else 0)) for i, cat in enumerate(CAT_IDS)
     }

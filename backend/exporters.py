@@ -26,21 +26,32 @@ def _table_csv(table: dict) -> str:
 def build_zip(job: Job) -> bytes:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("results.json", json.dumps({
-            "file": job.file.public(),
-            "health_score": job.health_score,
-            "results": job.results,
-        }, indent=2))
+        zf.writestr(
+            "results.json",
+            json.dumps(
+                {
+                    "file": job.file.public(),
+                    "health_score": job.health_score,
+                    "results": job.results,
+                },
+                indent=2,
+            ),
+        )
         zf.writestr("analysis.ipynb", json.dumps(build_notebook(job), indent=1))
         zf.writestr("analysis.R", build_r_script(job))
         for cat in CAT_IDS:
             for card in job.results.get(cat, []):
                 base = f"{cat}/{card['id']}"
-                zf.writestr(f"{base}/README.md", f"# {card['title']}\n\n{card.get('description', '')}\n")
+                zf.writestr(
+                    f"{base}/README.md",
+                    f"# {card['title']}\n\n{card.get('description', '')}\n",
+                )
                 if card.get("table"):
                     zf.writestr(f"{base}/data.csv", _table_csv(card["table"]))
                 if card.get("chart"):
-                    zf.writestr(f"{base}/chart.json", json.dumps(card["chart"], indent=2))
+                    zf.writestr(
+                        f"{base}/chart.json", json.dumps(card["chart"], indent=2)
+                    )
                 for lang, ext in (("python", "py"), ("r", "R")):
                     code = (card.get("code") or {}).get(lang)
                     if code:
@@ -50,8 +61,12 @@ def build_zip(job: Job) -> bytes:
 
 def build_r_script(job: Job) -> str:
     """Every R snippet in one script, in the same order as the notebook."""
-    parts = [(f"# R version of the cats' snippets for {job.file.filename}.\n"
-             "# Run it from the folder that holds the data file, top to bottom.\n")]
+    parts = [
+        (
+            f"# R version of the cats' snippets for {job.file.filename}.\n"
+            "# Run it from the folder that holds the data file, top to bottom.\n"
+        )
+    ]
     for cat in CAT_IDS:
         for card in job.results.get(cat, []):
             code = (card.get("code") or {}).get("r")
@@ -61,21 +76,32 @@ def build_r_script(job: Job) -> str:
 
 
 def _md(text: str) -> dict:
-    return {"cell_type": "markdown", "metadata": {}, "source": text.splitlines(keepends=True)}
+    return {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": text.splitlines(keepends=True),
+    }
 
 
 def _code(text: str) -> dict:
-    return {"cell_type": "code", "metadata": {}, "execution_count": None, "outputs": [],
-            "source": text.splitlines(keepends=True)}
+    return {
+        "cell_type": "code",
+        "metadata": {},
+        "execution_count": None,
+        "outputs": [],
+        "source": text.splitlines(keepends=True),
+    }
 
 
 def build_notebook(job: Job) -> dict:
     f = job.file
-    cells = [_md(
-        f"# Analysis of `{f.filename}`\n\n"
-        f"{f.rows:,} rows x {f.cols} columns. Data health score: **{job.health_score}**/100.\n\n"
-        "_Delegated by Purrfessorrr Slothhh, done by the cats._"
-    )]
+    cells = [
+        _md(
+            f"# Analysis of `{f.filename}`\n\n"
+            f"{f.rows:,} rows x {f.cols} columns. Data health score: **{job.health_score}**/100.\n\n"
+            "_Delegated by Purrfessorrr Slothhh, done by the cats._"
+        )
+    ]
     for cat in CAT_IDS:
         cards = job.results.get(cat, [])
         if not cards:
@@ -89,7 +115,13 @@ def build_notebook(job: Job) -> dict:
     return {
         "nbformat": 4,
         "nbformat_minor": 5,
-        "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"},
-                     "language_info": {"name": "python"}},
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3",
+            },
+            "language_info": {"name": "python"},
+        },
         "cells": cells,
     }

@@ -33,7 +33,7 @@ class TrendAxisTest(unittest.TestCase):
     def test_x_axis_names_the_date_column_and_months_are_in_order(self):
         rng = random.Random(3)
         dates = [f"2016-{m:02d}-{d:02d}" for m in range(1, 13) for d in (3, 17)]
-        rng.shuffle(dates)                                  # rows arrive out of order
+        rng.shuffle(dates)  # rows arrive out of order
         facts = _facts(["when_sold", "sales"], [[d, rng.randint(1, 50)] for d in dates])
         chart = _card(facts, "artist-trend")["chart"]
         self.assertEqual(chart["type"], "line")
@@ -44,12 +44,20 @@ class TrendAxisTest(unittest.TestCase):
 
     def test_other_date_formats_keep_working(self):
         # Only YYYY-MM-DD cells are charted (as before); D/M/Y cells are skipped without an error.
-        rows = [[f"2020-{m:02d}-05", m] for m in range(1, 7)] + [["5/7/2020", 9], ["6/8/2020", 9]]
+        rows = [[f"2020-{m:02d}-05", m] for m in range(1, 7)] + [
+            ["5/7/2020", 9],
+            ["6/8/2020", 9],
+        ]
         facts = _facts(["day", "n"], rows)
         chart = _card(facts, "artist-trend")["chart"]
         self.assertEqual(chart["labels"], [f"2020-{m:02d}" for m in range(1, 7)])
         self.assertIn("day", chart["x_label"])
-        self.assertIsNone(_card(_facts(["day", "n"], [[f"{d}/1/2020", d] for d in range(1, 10)]), "artist-trend"))
+        self.assertIsNone(
+            _card(
+                _facts(["day", "n"], [[f"{d}/1/2020", d] for d in range(1, 10)]),
+                "artist-trend",
+            )
+        )
 
 
 class HeatmapTest(unittest.TestCase):
@@ -58,7 +66,14 @@ class HeatmapTest(unittest.TestCase):
         rows = []
         for _ in range(n):
             a = rng.gauss(0, 1)
-            rows.append([round(a, 3), round(2 * a + rng.gauss(0, 0.3), 3), round(rng.gauss(0, 1), 3), round(-a + rng.gauss(0, 1), 3)])
+            rows.append(
+                [
+                    round(a, 3),
+                    round(2 * a + rng.gauss(0, 0.3), 3),
+                    round(rng.gauss(0, 1), 3),
+                    round(-a + rng.gauss(0, 1), 3),
+                ]
+            )
         return list(cols), rows
 
     def test_matrix_matches_python_correlations(self):
@@ -85,7 +100,7 @@ class HeatmapTest(unittest.TestCase):
     def test_missing_values_use_the_rows_both_columns_have(self):
         header, rows = self.numbers()
         for i in range(0, 60, 3):
-            rows[i][1] = ""                                 # blanks in b
+            rows[i][1] = ""  # blanks in b
         facts = _facts(header, rows)
         m = _card(facts, "artist-heatmap")["chart"]["matrix"]
         pairs = [(row[0], row[1]) for row in rows if row[1] != ""]
@@ -105,20 +120,32 @@ class HeatmapTest(unittest.TestCase):
         rows = []
         for i in range(40):
             x = rng.gauss(0, 1)
-            rows.append([round(x, 3) if i < 20 else "", round(x, 3) if i >= 20 else "", round(x + rng.gauss(0, 1), 3)])
+            rows.append(
+                [
+                    round(x, 3) if i < 20 else "",
+                    round(x, 3) if i >= 20 else "",
+                    round(x + rng.gauss(0, 1), 3),
+                ]
+            )
         card = _card(_facts(["a", "b", "c"], rows), "artist-heatmap")
         m = card["chart"]["matrix"]
         self.assertIsNone(m[0][1])
         self.assertIsNone(m[1][0])
         self.assertIsNotNone(m[0][2])
-        self.assertEqual(card["table"]["rows"][0][2], "")   # empty cell in the CSV, not "None"
+        self.assertEqual(
+            card["table"]["rows"][0][2], ""
+        )  # empty cell in the CSV, not "None"
 
     def test_too_few_number_columns_gives_no_heatmap(self):
         header, rows = self.numbers(cols=("a", "b", "c", "d"))
         two = _facts(header[:2], [r[:2] for r in rows])
         self.assertIsNone(_card(two, "artist-heatmap"))
-        self.assertIsNone(_card(_facts(["a"], [[r[0]] for r in rows]), "artist-heatmap"))
-        self.assertIsNone(_card(_facts(["name", "a"], [["x", r[0]] for r in rows]), "artist-heatmap"))
+        self.assertIsNone(
+            _card(_facts(["a"], [[r[0]] for r in rows]), "artist-heatmap")
+        )
+        self.assertIsNone(
+            _card(_facts(["name", "a"], [["x", r[0]] for r in rows]), "artist-heatmap")
+        )
 
     def test_many_columns_are_capped(self):
         rng = random.Random(1)

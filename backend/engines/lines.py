@@ -61,7 +61,8 @@ CHAT_VOICE: dict[str, str] = {
 }
 
 CHAT_BUSY: dict[str, str] = {
-    cat: "still on it... ask me again when my progress bar is full!" for cat in DONE_LINES
+    cat: "still on it... ask me again when my progress bar is full!"
+    for cat in DONE_LINES
 }
 CHAT_FAILED = "i tripped on this file, so i have no notes... sorry."
 
@@ -90,13 +91,24 @@ CHAT_WHO_GEMMA = (
 )
 CHAT_GEMMA_DOWN = "(my language model is napping: {problem}. i'm answering from my rule book until it wakes up...)"
 CHAT_GEMMA_GUESS = "i'm not sure i got that... did you mean: '{question}'?"
-CHAT_GEMMA_UNCHECKED_SHORT = "its answer quoted numbers about your file that i could not check"
-CHAT_GEMMA_TRIMMED = "(i left out a sentence that quoted a number about your file i could not check.)"
-CHAT_NEEDS_MODEL = ("that's a question for my language model, and right now {problem}... i can still answer from "
-                    "the data itself: statistics, missing values, outliers, columns, charts and the code...")
-CHAT_CLARIFY = ("hmm... i'm not sure what you mean... is it about a column, a chart, the code, or a data-science "
-                "idea? a few more words would help...")
-CHAT_CLARIFY_CHOICES = ("what columns are there?", "which additional analysis would be useful?")
+CHAT_GEMMA_UNCHECKED_SHORT = (
+    "its answer quoted numbers about your file that i could not check"
+)
+CHAT_GEMMA_TRIMMED = (
+    "(i left out a sentence that quoted a number about your file i could not check.)"
+)
+CHAT_NEEDS_MODEL = (
+    "that's a question for my language model, and right now {problem}... i can still answer from "
+    "the data itself: statistics, missing values, outliers, columns, charts and the code..."
+)
+CHAT_CLARIFY = (
+    "hmm... i'm not sure what you mean... is it about a column, a chart, the code, or a data-science "
+    "idea? a few more words would help..."
+)
+CHAT_CLARIFY_CHOICES = (
+    "what columns are there?",
+    "which additional analysis would be useful?",
+)
 CHAT_GEMMA_UNCHECKED = "(the language model's answer quoted numbers i could not check against your data, so here is the rule book instead...)"
 # Keep in step with the caps in analyse() (backend/engines/local.py).
 CHAT_SCORE_HOW = (
@@ -108,7 +120,9 @@ CHAT_NEVERMIND = "okay... never mind... *goes back to napping*"
 CHAT_TAP = "tap a column for details."
 CHAT_ASK_ONE = "did you mean {name}? say yes, or name another column."
 CHAT_ASK_MANY = "which one did you mean: {names}{more}? tap one, or say all."
-CHAT_ASK_STAT = "which column? i would guess {name} ({why})... say yes, or name another."
+CHAT_ASK_STAT = (
+    "which column? i would guess {name} ({why})... say yes, or name another."
+)
 CHAT_NOT_READY = "the cats are still reading the file... ask me again in a moment..."
 CHAT_HELP = (
     "mmh... i only delegate... ask the cats about outliers, duplicates, missing values, charts, "

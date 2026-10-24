@@ -39,10 +39,10 @@ class Settings:
     max_upload_mb: int
     upload_dir: Path
     cat_speed: float
-    engine: str               # "local" (rules only) or "gemma" (rules + Gemma in Ollama)
+    engine: str  # "local" (rules only) or "gemma" (rules + Gemma in Ollama)
     ollama_url: str
     ollama_model: str
-    ollama_timeout: float     # seconds per Gemma request
+    ollama_timeout: float  # seconds per Gemma request
 
 
 def load_settings() -> Settings:

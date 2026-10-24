@@ -29,7 +29,7 @@ class ExcludeRule(BaseModel):
 
 class AnalyzeIn(BaseModel):
     file_id: str
-    columns: list[int] | None = None      # None = all
+    columns: list[int] | None = None  # None = all
     target: int | None = None
     exclude: list[ExcludeRule] = Field(default_factory=list, max_length=50)
 
@@ -38,7 +38,7 @@ class PreviewIn(BaseModel):
     file_id: str
     exclude: list[ExcludeRule] = Field(default_factory=list, max_length=50)
     show_excluded: bool = True
-    cursor: int = Field(0, ge=0)          # data rows already seen
+    cursor: int = Field(0, ge=0)  # data rows already seen
     limit: int = Field(100, ge=1, le=500)
 
 
@@ -74,7 +74,9 @@ def _selection(body: AnalyzeIn, cols: int) -> Selection:
         raise HTTPException(422, "pick at least one column")
     if body.target is not None and check(body.target) not in (columns or [body.target]):
         raise HTTPException(422, "the target must be one of the chosen columns")
-    return Selection(columns, body.target, [(check(r.column), r.value.strip()) for r in body.exclude])
+    return Selection(
+        columns, body.target, [(check(r.column), r.value.strip()) for r in body.exclude]
+    )
 
 
 @router.get("/config")
@@ -100,7 +102,9 @@ async def preview(body: PreviewIn) -> dict:
     if info is None:
         raise HTTPException(404, "no such file (upload it again)")
     rules = [(_column(r.column, info.cols), r.value.strip()) for r in body.exclude]
-    return await asyncio.to_thread(preview_page, info, rules, body.show_excluded, body.cursor, body.limit)
+    return await asyncio.to_thread(
+        preview_page, info, rules, body.show_excluded, body.cursor, body.limit
+    )
 
 
 @router.post("/analyze")
@@ -114,7 +118,9 @@ async def analyze(body: AnalyzeIn) -> dict:
         try:
             await engine.run(job)
         except Exception as exc:  # never leave a stream hanging
-            await job.emit("error", cat=None, message=f"the whole office tripped: {exc}")
+            await job.emit(
+                "error", cat=None, message=f"the whole office tripped: {exc}"
+            )
         if not job.finished:
             await job.emit("done", health_score=job.health_score)
 
@@ -142,8 +148,11 @@ async def job_events(job_id: str, request: Request):
                 continue
             yield f"id: {event.id}\nevent: {event.type}\ndata: {json.dumps(event.data)}\n\n"
 
-    return StreamingResponse(gen(), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/results/{job_id}/{cat}")
@@ -168,8 +177,11 @@ async def redraw_scatter(job_id: str, body: ScatterIn) -> dict:
     if old is None:
         raise HTTPException(409, "No scatter plot is available for this analysis")
     from .engines.local import scatter_card_for_columns
+
     try:
-        card = await asyncio.to_thread(scatter_card_for_columns, job.file, job.selection, body.x, body.y)
+        card = await asyncio.to_thread(
+            scatter_card_for_columns, job.file, job.selection, body.x, body.y
+        )
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     card["scatter_columns"] = old.get("scatter_columns", [])
@@ -181,27 +193,47 @@ async def redraw_scatter(job_id: str, body: ScatterIn) -> dict:
 async def export_zip(job_id: str) -> Response:
     job = _job_or_404(job_id)
     name = _safe_stem(job.file.filename)
-    return Response(build_zip(job), media_type="application/zip",
-                    headers={"Content-Disposition": f'attachment; filename="{name}_slothhh.zip"'})
+    return Response(
+        build_zip(job),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{name}_slothhh.zip"'},
+    )
 
 
 @router.get("/export/{job_id}/notebook")
 async def export_notebook(job_id: str) -> Response:
     job = _job_or_404(job_id)
     name = _safe_stem(job.file.filename)
-    return JSONResponse(build_notebook(job), media_type="application/x-ipynb+json",
-                        headers={"Content-Disposition": f'attachment; filename="{name}_slothhh.ipynb"'})
+    return JSONResponse(
+        build_notebook(job),
+        media_type="application/x-ipynb+json",
+        headers={"Content-Disposition": f'attachment; filename="{name}_slothhh.ipynb"'},
+    )
 
 
 @router.post("/chat")
 async def chat(body: ChatIn) -> dict:
     job = jobs.get(body.job_id) if body.job_id else None
     replies = await engine.chat(job, body.message)
-    return {"replies": [{"from": r.who, "reply": r.text, "choices": r.choices, "code": r.code, "followup": r.followup,
-                         "card": r.card} for r in replies]}
+    return {
+        "replies": [
+            {
+                "from": r.who,
+                "reply": r.text,
+                "choices": r.choices,
+                "code": r.code,
+                "followup": r.followup,
+                "card": r.card,
+            }
+            for r in replies
+        ]
+    }
 
 
 @router.get("/sample.csv")
 async def sample() -> Response:
-    return Response(sample_csv(), media_type="text/csv",
-                    headers={"Content-Disposition": 'attachment; filename="cafe_sales_sample.csv"'})
+    return Response(
+        sample_csv(),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="cafe_sales_sample.csv"'},
+    )

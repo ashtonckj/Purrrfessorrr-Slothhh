@@ -15,12 +15,18 @@ def get_engine() -> Engine:
         from .gemma import GemmaEngine, Ollama
 
         try:
-            llm = Ollama(settings.ollama_url, settings.ollama_model, settings.ollama_timeout)
+            llm = Ollama(
+                settings.ollama_url, settings.ollama_model, settings.ollama_timeout
+            )
         except ValueError as exc:
             print(f"  gemma is off: {exc}. Using the local engine.")
         else:
-            threading.Thread(target=llm.warm, daemon=True).start()   # load the model without delaying start-up
+            threading.Thread(
+                target=llm.warm, daemon=True
+            ).start()  # load the model without delaying start-up
             return GemmaEngine(settings.cat_speed, llm)
     elif settings.engine != "local":
-        print(f"  unknown ENGINE={settings.engine!r} (use local or gemma). Using the local engine.")
+        print(
+            f"  unknown ENGINE={settings.engine!r} (use local or gemma). Using the local engine."
+        )
     return LocalEngine(speed=settings.cat_speed)

@@ -12,26 +12,38 @@ import json
 
 from ..files import parse_number
 
-q = json.dumps                       # a column or file name as an R string literal (same escapes as Python's)
+q = (
+    json.dumps
+)  # a column or file name as an R string literal (same escapes as Python's)
 
 
 def vec(items: list[str]) -> str:
     return "c(" + ", ".join(q(i) for i in items) + ")"
 
 
-def loader(filename: str, na_values: list[str], excluded: list[tuple[str, str]], kept: list[str], total: int) -> str:
+def loader(
+    filename: str,
+    na_values: list[str],
+    excluded: list[tuple[str, str]],
+    kept: list[str],
+    total: int,
+) -> str:
     """`df <- ...` plus the user's row filter and column choice."""
     low = filename.lower()
     if low.endswith(".xlsx"):
-        read = f"as.data.frame(readxl::read_excel({q(filename)}, na = {vec(na_values)}))"
+        read = (
+            f"as.data.frame(readxl::read_excel({q(filename)}, na = {vec(na_values)}))"
+        )
     else:
         fn = "read.delim" if low.endswith(".tsv") else "read.csv"
-        read = (f"{fn}({q(filename)}, na.strings = {vec(na_values)}, strip.white = TRUE, check.names = FALSE,\n"
-                f'  stringsAsFactors = FALSE, fileEncoding = "UTF-8-BOM")')
+        read = (
+            f"{fn}({q(filename)}, na.strings = {vec(na_values)}, strip.white = TRUE, check.names = FALSE,\n"
+            f'  stringsAsFactors = FALSE, fileEncoding = "UTF-8-BOM")'
+        )
     code = f"df <- {read}"
     for col, value in excluded:
         num = parse_number(value)
-        if value == "":                       # blank cells are read as NA
+        if value == "":  # blank cells are read as NA
             code += f"\ndf <- df[!is.na(df[[{q(col)}]]), ]"
         elif num is not None:
             code += f"\ndf <- df[!(suppressWarnings(as.numeric(df[[{q(col)}]])) %in% {num!r}), ]"
@@ -47,6 +59,7 @@ def number(col: str) -> str:
 
 
 # ---------------------------------------------------------------- detective
+
 
 def outliers(read: str, col: str) -> str:
     return f"""{read}
@@ -70,6 +83,7 @@ df[[{q(col)}]] <- suppressWarnings(as.numeric(gsub("[$,]", "", as.character(df[[
 
 
 # ------------------------------------------------------------------- artist
+
 
 def histogram(spec: dict) -> str:
     """`spec` is the histogram spec from local.histogram_card; equal-width bins from min to max, like matplotlib."""
@@ -127,6 +141,7 @@ print(cor(x, y, use = "complete.obs"))"""
 
 # -------------------------------------------------------------------- coder
 
+
 def load_peek(read: str, rows: int, cols: int) -> str:
     return f"""{read}
 cat(nrow(df), "rows,", ncol(df), "columns\\n")     # ({rows}, {cols})
@@ -140,20 +155,31 @@ def summary_stats(group: str | None, num: str | None) -> str:
     if group:
         code += f"\n\nprint(head(sort(table(df[[{q(group)}]]), decreasing = TRUE), 10))"
         if num:
-            code += (f"\nprint(sapply(split({number(num)}, df[[{q(group)}]]), function(x)"
-                     " round(c(count = sum(!is.na(x)), mean = mean(x, na.rm = TRUE), median = median(x, na.rm = TRUE)), 2)))")
+            code += (
+                f"\nprint(sapply(split({number(num)}, df[[{q(group)}]]), function(x)"
+                " round(c(count = sum(!is.na(x)), mean = mean(x, na.rm = TRUE), median = median(x, na.rm = TRUE)), 2)))"
+            )
     return code
 
 
 def baseline(target: str, classify: bool) -> str:
     """A train/test baseline on a copy of `df` (so later snippets still see the original column names)."""
-    first = ("data[[target]] <- factor(data[[target]])" if classify
-             else "data[[target]] <- suppressWarnings(as.numeric(data[[target]]))\ndata <- data[!is.na(data[[target]]), ]")
-    fit = ("nnet::multinom(reformulate(\".\", response = target), data = train, trace = FALSE)" if classify
-           else "lm(reformulate(\".\", response = target), data = train)")
-    score = ('cat("accuracy:", round(mean(predict(fit, test) == test[[target]]), 3), "\\n")' if classify else
-             'pred <- suppressWarnings(predict(fit, test))\n'
-             'cat("R^2:", round(1 - sum((test[[target]] - pred)^2) / sum((test[[target]] - mean(test[[target]]))^2), 3), "\\n")')
+    first = (
+        "data[[target]] <- factor(data[[target]])"
+        if classify
+        else "data[[target]] <- suppressWarnings(as.numeric(data[[target]]))\ndata <- data[!is.na(data[[target]]), ]"
+    )
+    fit = (
+        'nnet::multinom(reformulate(".", response = target), data = train, trace = FALSE)'
+        if classify
+        else 'lm(reformulate(".", response = target), data = train)'
+    )
+    score = (
+        'cat("accuracy:", round(mean(predict(fit, test) == test[[target]]), 3), "\\n")'
+        if classify
+        else "pred <- suppressWarnings(predict(fit, test))\n"
+        'cat("R^2:", round(1 - sum((test[[target]] - pred)^2) / sum((test[[target]] - mean(test[[target]]))^2), 3), "\\n")'
+    )
     return f"""set.seed(42)
 data <- df[!is.na(df[[{q(target)}]]), ]
 data <- data[, colSums(!is.na(data)) > 0, drop = FALSE]
@@ -197,7 +223,9 @@ df[[{q(col)}]] <- NULL"""
 
 def recipe(fix: list[str], out_file: str) -> str:
     fixes = "".join(
-        f'\n  df[[{q(c)}]] <- suppressWarnings(as.numeric(gsub("[$,]", "", as.character(df[[{q(c)}]]))))' for c in fix)
+        f'\n  df[[{q(c)}]] <- suppressWarnings(as.numeric(gsub("[$,]", "", as.character(df[[{q(c)}]]))))'
+        for c in fix
+    )
     return f"""clean <- function(df) {{
   df <- df[!duplicated(df), ]{fixes}
   is_num <- sapply(df, is.numeric)
