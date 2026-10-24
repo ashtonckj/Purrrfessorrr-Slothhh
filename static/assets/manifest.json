@@ -385,6 +385,28 @@
       "color": "#e08a3c",
       "usedIn": "sits at the end of a finished progress bar (with check icon)"
     },
+    "nap_sign": {
+      "file": "sprites/props/nap_sign.png",
+      "frameWidth": 124,
+      "frameHeight": 124,
+      "frameCount": 1,
+      "fps": 1,
+      "group": "props",
+      "label": "nap sign",
+      "color": "#5f8f4e",
+      "usedIn": "decoration right of the professor"
+    },
+    "noticeboard": {
+      "file": "sprites/props/noticeboard.png",
+      "frameWidth": 1448,
+      "frameHeight": 1086,
+      "frameCount": 1,
+      "fps": 1,
+      "group": "props",
+      "label": "noticeboard",
+      "color": "#5f8f4e",
+      "usedIn": "decoration left of the professor"
+    },
     "avatar_sloth": {
       "file": "avatars/sloth.png",
       "frameWidth": 48,
