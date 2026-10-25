@@ -155,57 +155,28 @@ function emptyState(cat, text, mood) {
 
 // ------------------------------------------------------------------- card
 
-export function renderCard(cat, card, openByDefault) {
+export function renderCard(cat, card, openByDefault, focusPick = null) {
   const details = el('details', { class: 'card px-fill' });
   details.open = openByDefault;
 
+  const message = el('p', { class: 'card__pick-error', role: 'alert', 'aria-live': 'polite' });
+  const picks = headerPicks(cat, card, details, message, focusPick);
+
   const summary = el('summary', { class: 'card__head' },
     el('span', { class: 'card__title', text: card.title }),
+    picks,
     card.severity ? el('span', { class: `tag tag--${card.severity}`, text: DRAWER.severity[card.severity] ?? card.severity,
       title: DRAWER.severityHelp[card.severity] }) : null,
     el('span', { class: 'card__chevron' }, icon('chevron', { scale: 1 })));
 
   const content = el('div', { class: 'card__body' });
   if (card.description) content.append(el('p', { class: 'card__desc', text: card.description }));
+  content.append(message);
 
   let canvas = null;
   if (card.chart) {
     canvas = el('canvas', { class: 'card__canvas' });
     content.append(el('div', { class: 'card__chart' }, canvas));
-  }
-  if (card.id === 'artist-scatter' && card.chart?.type === 'scatter' && card.scatter_columns?.length) {
-    const columns = card.scatter_columns;
-    const selector = (axis, selected) => el('select', { class: 'picker__select', 'aria-label': `Scatter ${axis} column` },
-      columns.map(name => el('option', { value: name, text: name, selected: name === selected })));
-    const x = selector('X', card.chart.x_label);
-    const y = selector('Y', card.chart.y_label);
-    const message = el('p', { role: 'alert', 'aria-live': 'polite' });
-    const controls = el('div', { class: 'card__scatter-controls' },
-      el('label', {}, 'X ', x), el('label', {}, '     Y ', y), message);
-    const change = async () => {
-      const previousX = card.chart.x_label, previousY = card.chart.y_label;
-      x.disabled = y.disabled = true;
-      message.textContent = '';
-      try {
-        if (x.value === y.value) throw new Error('Choose two different columns for X and Y');
-        if (!state.jobId) throw new Error('No active analysis');
-        const result = await api.redrawScatter(state.jobId, x.value, y.value);
-        const cards = state.results[cat];
-        const index = cards?.findIndex(item => item.id === card.id) ?? -1;
-        if (index >= 0) cards[index] = result.card;
-        // Replace just this card so the selected pair's code, table and PNG export update together.
-        const replacement = renderCard(cat, result.card, details.open);
-        details.parentElement.replaceWith(replacement);
-      } catch (error) {
-        message.textContent = error.message || 'Could not redraw scatter plot';
-        x.value = previousX;
-        y.value = previousY;
-        x.disabled = y.disabled = false;
-      }
-    };
-    x.addEventListener('change', change);
-    y.addEventListener('change', change);
-    content.append(controls);
   }
   if (card.table?.columns?.length) content.append(renderTable(card.table));
 
@@ -237,6 +208,79 @@ export function renderCard(cat, card, openByDefault) {
     requestAnimationFrame(paint);
   }
   return el('div', { class: 'px-frame card__frame' }, details);
+}
+
+// ------------------------------------------------------- header dropdowns
+
+/** What an artist card lets the user change from its header: the dropdowns and how to redraw. Null for other cards. */
+function pickerSpec(card) {
+  if (card.id === 'artist-scatter' && card.chart?.type === 'scatter' && card.scatter_columns?.length) {
+    return {
+      picks: [
+        { label: 'X', options: card.scatter_columns, value: card.chart.x_label },
+        { label: 'Y', options: card.scatter_columns, value: card.chart.y_label },
+      ],
+      redraw: ([x, y]) => {
+        if (x === y) throw new Error('Choose two different columns for X and Y');
+        return api.redrawScatter(state.jobId, x, y);
+      },
+      failed: 'Could not redraw scatter plot',
+    };
+  }
+  if (card.id === 'artist-boxplot' && card.chart?.type === 'box' && card.column_choices?.length > 1) {
+    return {
+      picks: [{ label: 'Column', options: card.column_choices, value: card.chart.x_label }],
+      redraw: ([column]) => api.redrawBoxplot(state.jobId, column),
+      failed: 'Could not redraw box plot',
+    };
+  }
+  if (card.id === 'artist-distribution' && card.chart?.type === 'hist' && card.column_choices?.length > 1) {
+    return {
+      picks: [{ label: 'Column', options: card.column_choices, value: card.spec?.column ?? card.chart.x_label }],
+      redraw: ([column]) => api.redrawDistribution(state.jobId, column),
+      failed: 'Could not redraw distribution',
+    };
+  }
+  return null;
+}
+
+/** Column dropdowns for the card header. Picking one re-draws just this card (chart, table, code and exports). */
+function headerPicks(cat, card, details, message, focusPick) {
+  const spec = pickerSpec(card);
+  if (!spec) return null;
+
+  const selects = spec.picks.map(({ label, options, value }, i) => el('select', {
+    class: 'picker__select card__pick', 'data-pick': String(i), 'aria-label': `${card.title}: ${label} column`,
+  }, options.map(name => el('option', { value: name, text: name, selected: name === value }))));
+
+  const change = async () => {
+    const previous = spec.picks.map(p => p.value);
+    selects.forEach(sel => { sel.disabled = true; });
+    message.textContent = '';
+    try {
+      if (!state.jobId) throw new Error('No active analysis');
+      const result = await spec.redraw(selects.map(sel => sel.value));
+      const cards = state.results[cat];
+      const index = cards?.findIndex(item => item.id === card.id) ?? -1;
+      if (index >= 0) cards[index] = result.card;
+      // Replace just this card so its code, table and PNG export follow the new columns.
+      const focus = selects.findIndex(sel => sel === document.activeElement);
+      details.parentElement.replaceWith(renderCard(cat, result.card, details.open, focus >= 0 ? focus : 0));
+    } catch (error) {
+      message.textContent = error.message || spec.failed;
+      selects.forEach((sel, i) => { sel.value = previous[i]; sel.disabled = false; });
+      details.open = true;       // show the message
+    }
+  };
+
+  const wrap = el('span', { class: 'card__picks' },
+    spec.picks.map(({ label }, i) => el('label', { class: 'card__pick-label' }, spec.picks.length > 1 ? `${label} ` : '', selects[i])));
+  selects.forEach(sel => sel.addEventListener('change', change));
+  // The header is a <summary>: keep clicks and keys on the dropdowns from folding the card.
+  wrap.addEventListener('click', e => e.preventDefault());
+  wrap.addEventListener('keydown', e => e.stopPropagation());
+  if (focusPick != null) requestAnimationFrame(() => selects[focusPick]?.focus());
+  return wrap;
 }
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });

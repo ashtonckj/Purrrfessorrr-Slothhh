@@ -189,6 +189,59 @@ async def redraw_scatter(job_id: str, body: ScatterIn) -> dict:
     return {"card": card}
 
 
+class ColumnIn(BaseModel):
+    column: str
+
+
+async def _redraw_artist_card(job_id: str, card_id: str, label: str, build) -> dict:
+    """Swap one artist card for a version drawn from another column (no cat reruns; exports follow it)."""
+    job = _job_or_404(job_id)
+    cards = job.results.get("artist", [])
+    old = next((c for c in cards if c.get("id") == card_id), None)
+    if old is None:
+        raise HTTPException(409, f"No {label} is available for this analysis")
+    try:
+        card = await asyncio.to_thread(build, job, old)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    cards[cards.index(old)] = card
+    return {"card": card}
+
+
+@router.post("/jobs/{job_id}/boxplot")
+async def redraw_boxplot(job_id: str, body: ColumnIn) -> dict:
+    """Box plot of another column."""
+    from .engines.local import boxplot_card_for_column
+
+    return await _redraw_artist_card(
+        job_id,
+        "artist-boxplot",
+        "box plot",
+        lambda job, old: boxplot_card_for_column(
+            job.file, job.selection, body.column, old.get("column_choices")
+        ),
+    )
+
+
+@router.post("/jobs/{job_id}/distribution")
+async def redraw_distribution(job_id: str, body: ColumnIn) -> dict:
+    """Histogram of another column (keeps the current bin count)."""
+    from .engines.local import HIST_BINS, distribution_card_for_column
+
+    return await _redraw_artist_card(
+        job_id,
+        "artist-distribution",
+        "distribution",
+        lambda job, old: distribution_card_for_column(
+            job.file,
+            job.selection,
+            body.column,
+            old.get("spec", {}).get("bins", HIST_BINS),
+            old.get("column_choices"),
+        ),
+    )
+
+
 @router.get("/export/{job_id}/zip")
 async def export_zip(job_id: str) -> Response:
     job = _job_or_404(job_id)

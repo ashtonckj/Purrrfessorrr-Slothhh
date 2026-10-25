@@ -106,6 +106,16 @@
 :root[data-theme="night"] .card__chevron .sprite { filter: invert(1); }
 
 .card__head .tag { cursor: help; }
+
+/* Column dropdowns that live in the card header (artist charts). */
+.card__head { flex-wrap: wrap; }
+.card__title { min-width: 8ch; }
+.card__picks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; cursor: default; }
+.card__pick-label { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); }
+.card__pick { max-width: 160px; cursor: pointer; margin-left: 4px; margin-right: 4px; }
+.card__pick:disabled { opacity: 0.6; cursor: progress; }
+.card__pick-error { margin: 0; font-size: var(--fs-xs); color: var(--red); }
+.card__pick-error:empty { display: none; }
 .tag--ok { background: var(--mint); }
 .tag--warn { background: var(--yellow); }
 .tag--bad { background: var(--red); color: var(--white); }

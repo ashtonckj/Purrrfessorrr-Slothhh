@@ -928,7 +928,7 @@ class LocalEngine(Engine):
             if spec == hist_spec(col.name)
             else " (Changed in the chat; the standard version has 10 bins.)"
         )
-        new = histogram_card(spec, hist, col.stats, note)
+        new = histogram_card(spec, hist, col.stats, note, number_choices(facts))
         if old:
             convo.charts = (convo.charts + [old])[-10:]
             cards[cards.index(old)] = new
@@ -1586,6 +1586,64 @@ def scatter_card_for_columns(
     }
 
 
+def number_choices(f: Facts) -> list[str]:
+    """Columns the box plot and histogram dropdowns offer: the real measures, else any number column with stats."""
+    cols = [c for c in f.measures if c.stats] or [
+        c for c in f.cols if c.kind == "number" and c.stats
+    ]
+    return [c.name for c in cols]
+
+
+def _numeric_profile(info: FileInfo, selection: Selection, name: str) -> Col:
+    """Read one chosen column (after the row filter) and profile it; raises ValueError if it can't be charted."""
+    allowed = (
+        selection.columns
+        if selection.columns is not None
+        else list(range(len(info.columns)))
+    )
+    if name not in [info.columns[i] for i in allowed]:
+        raise ValueError("Unknown or unselected column")
+    rows, _, _ = _read(info, selection, [info.columns.index(name)])
+    col = _profile(name, [row[0] for row in rows])
+    if col.kind != "number":
+        raise ValueError(f"{name} holds {col.kind}, not numbers")
+    if not col.stats:
+        raise ValueError(f"{name} has fewer than two numbers")
+    return col
+
+
+def boxplot_card_for_column(
+    info: FileInfo, selection: Selection, name: str, choices: list[str] | None = None
+) -> dict:
+    """Rebuild only the box plot card for another column."""
+    card = boxplot_card(_numeric_profile(info, selection, name))
+    if card is None:
+        raise ValueError(f"{name} has no spread to draw a box plot from")
+    if choices:
+        card["column_choices"] = choices
+    return card
+
+
+def distribution_card_for_column(
+    info: FileInfo,
+    selection: Selection,
+    name: str,
+    bins: int = HIST_BINS,
+    choices: list[str] | None = None,
+) -> dict:
+    """Rebuild only the histogram card for another column (keeps the bin count)."""
+    col = _numeric_profile(info, selection, name)
+    hist = _histogram([x for x in col.numbers if x is not None], bins)
+    if hist is None:
+        raise ValueError(f"{name} has no numbers to draw")
+    note = (
+        ""
+        if bins == HIST_BINS
+        else " (Changed in the chat; the standard version has 10 bins.)"
+    )
+    return histogram_card(hist_spec(name, bins), hist, col.stats, note, choices)
+
+
 # ------------------------------------------------------------------ cards
 # Every card follows the shape documented in engines/base.py.
 
@@ -1785,10 +1843,11 @@ if len(x) >= 2:
 def artist_cards(f: Facts) -> list[dict]:
     cards = []
     a = f.focus
+    choices = number_choices(f)
     if a and f.hist:
-        cards.append(histogram_card(hist_spec(a.name), f.hist, a.stats))
+        cards.append(histogram_card(hist_spec(a.name), f.hist, a.stats, "", choices))
     if f.box:
-        cards.append(f.box)
+        cards.append({**f.box, "column_choices": choices})
     if f.by_group:
         g, top = f.by_group
         what = f"mean {a.name}" if a else "rows"
@@ -1991,7 +2050,11 @@ def hist_spec(column: str, bins: int = HIST_BINS) -> dict:
 
 
 def histogram_card(
-    spec: dict, hist: tuple[list[str], list[int]], stats: dict, note: str = ""
+    spec: dict,
+    hist: tuple[list[str], list[int]],
+    stats: dict,
+    note: str = "",
+    choices: list[str] | None = None,
 ) -> dict:
     """The one histogram template: the baseline card and every re-drawn one come from here."""
     labels, counts = hist
@@ -2008,7 +2071,7 @@ def histogram_card(
         if s
         else ""
     )
-    return {
+    card = {
         "id": "artist-distribution",
         "title": f"Distribution of {name}",
         "description": f"A histogram with {spec['bins']} equal-width bins, because {name} is one number per row.{about}{note}",
@@ -2035,6 +2098,9 @@ plt.show()""",
         },
         "spec": spec,
     }
+    if choices:
+        card["column_choices"] = choices  # the header dropdown's options
+    return card
 
 
 def scribe_cards(f: Facts) -> list[dict]:

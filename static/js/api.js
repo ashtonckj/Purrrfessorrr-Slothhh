@@ -58,6 +58,10 @@ export const chat = (jobId, message) => post('/api/chat', { job_id: jobId, messa
 
 export const redrawScatter = (jobId, x, y) => post(`/api/jobs/${jobId}/scatter`, { x, y });
 
+export const redrawBoxplot = (jobId, column) => post(`/api/jobs/${jobId}/boxplot`, { column });
+
+export const redrawDistribution = (jobId, column) => post(`/api/jobs/${jobId}/distribution`, { column });
+
 export const getResults = (jobId, cat) => fetch(`/api/results/${jobId}/${cat}`).then(json);
 
 export const exportUrl = (jobId, kind) => `/api/export/${jobId}/${kind}`;
