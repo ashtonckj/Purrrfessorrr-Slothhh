@@ -83,7 +83,7 @@ CHAT_WORDS = {
     "columns",
 }
 MAX_CHOICES = 6
-HELP_HINT = lines.CHAT_HELP.split("{")[0]
+HELP_HINT = lines.CHAT_HELP.split('{', maxsplit=1)[0]
 # Which numbers a question asks for, so "the highest temp" gets the max and not the whole profile.
 WANTED = [
     (stat, re.compile(words))
@@ -2312,7 +2312,7 @@ df.head()""",
                 "code": {
                     "python": f"""from sklearn.compose import make_column_transformer
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import {model.split("(")[0]}
+from sklearn.linear_model import {model.split('(', maxsplit=1)[0]}
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import OneHotEncoder
