@@ -12,11 +12,7 @@
 ![Local-first](https://img.shields.io/badge/Privacy-Local--first-6A8563?labelColor=383838&style=for-the-badge)
 ![Gemma 3](https://img.shields.io/badge/AI-Gemma%203%20(optional)-836F9C?labelColor=383838&style=for-the-badge)
 
-[Quick start](#quick-start) · [The team](#the-team) · [How it works](#how-it-works) · [Contribute](CONTRIBUTING.md)
-
-<!-- SCREENSHOT: add a wide shot at docs/images/hero.png (the office, the sloth, the cats at work) and uncomment:
-![The pixel-art office](docs/images/hero.png)
--->
+<img width="1919" height="994" alt="image" src="https://github.com/user-attachments/assets/bde72ca4-cfb6-45a8-804f-941e6e091280" />
 
 </div>
 
@@ -165,9 +161,7 @@ See [LICENSE](LICENSE). Third-party code, fonts, art, and model weights may carr
 ## 🎨 Credits & Acknowledgements
 
 This project wouldn't feel quite the same without its charming collection of pixel art illustrations! ✨
-
 Special thanks to the talented artists and creative communities whose artwork helped shape the application's visual identity.
-
 Visual assets were sourced from Freepik, Dreamstime, Vecteezy, Pixel Art Maker, Pinterest, and other online resources.
 
 **🖼️ [View Full Asset Credits & Attribution](./ASSETS.md)**
