@@ -162,6 +162,20 @@ Made for **Hacktoberfest 2026, Open-Source AI Challenge, Week 3: "Slow and Stead
 
 See [LICENSE](LICENSE). Third-party code, fonts, art, and model weights may carry their own terms. Ollama is a separate project.
 
+## 🎨 Credits & Acknowledgements
+
+This project wouldn't feel quite the same without its charming collection of pixel art illustrations! ✨
+
+Special thanks to the talented artists and creative communities whose artwork helped shape the application's visual identity.
+
+Visual assets were sourced from Freepik, Dreamstime, Vecteezy, Pixel Art Maker, Pinterest, and other online resources.
+
+**🖼️ [View Full Asset Credits & Attribution](./ASSETS.md)**
+
+All third-party artwork belongs to its respective copyright holders and is subject to its own licensing terms.
+
+Made with ☕, creativity, and a little pixel magic. 💛
+
 ---
 
 <div align="center">
