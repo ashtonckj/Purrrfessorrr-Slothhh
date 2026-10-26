@@ -15,6 +15,16 @@ from .cats import CAT_IDS, CATS
 from .jobs import Job
 
 
+def _comment(text: object) -> str:
+    """User-derived text (file name, card titles built from column headers) as one safe line for a `#` comment.
+
+    Line breaks of any kind (CR, LF, VT, FF, NEL, U+2028/2029) and other control or unprintable
+    characters become spaces, so the text can never start a new, executable line.
+    """
+    clean = "".join(c if c.isprintable() else " " for c in str(text))
+    return " ".join(clean.split())
+
+
 def _table_csv(table: dict) -> str:
     buf = io.StringIO()
     writer = csv.writer(buf)
@@ -63,7 +73,7 @@ def build_r_script(job: Job) -> str:
     """Every R snippet in one script, in the same order as the notebook."""
     parts = [
         (
-            f"# R version of the cats' snippets for {job.file.filename}.\n"
+            f"# R version of the cats' snippets for {_comment(job.file.filename)}.\n"
             "# Run it from the folder that holds the data file, top to bottom.\n"
         )
     ]
@@ -71,7 +81,7 @@ def build_r_script(job: Job) -> str:
         for card in job.results.get(cat, []):
             code = (card.get("code") or {}).get("r")
             if code:
-                parts.append(f"# --- {cat}: {card['title']}\n{code}\n")
+                parts.append(f"# --- {cat}: {_comment(card['title'])}\n{code}\n")
     return "\n".join(parts)
 
 

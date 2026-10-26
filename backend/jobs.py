@@ -59,6 +59,7 @@ class Job:
                 index += 1
             if self.finished:
                 return
+            idle = False
             async with self._changed:
                 try:
                     await asyncio.wait_for(
@@ -67,8 +68,11 @@ class Job:
                         ),
                         timeout=keepalive,
                     )
-                except TimeoutError:
-                    yield None
+                except TimeoutError:  # not the builtin on Python 3.10
+                    idle = True
+            if idle:
+                # Yield outside the lock: a slow client must not hold up `emit`.
+                yield None
 
 
 class JobStore:

@@ -9,12 +9,21 @@ first (loading) snippet reads the file.
 from __future__ import annotations
 
 import json
+import re
 
 from ..files import parse_number
 
-q = (
-    json.dumps
-)  # a column or file name as an R string literal (same escapes as Python's)
+# json.dumps writes characters above U+FFFF as a surrogate pair, which R rejects; R wants \U{...}.
+_SURROGATES = re.compile(r"\\u(d[89ab][0-9a-f]{2})\\u(d[c-f][0-9a-f]{2})", re.IGNORECASE)
+
+
+def q(text: str) -> str:
+    """A column or file name as an R string literal: quotes, backslashes and newlines stay escaped inside it."""
+    return _SURROGATES.sub(
+        lambda m: "\\U{%x}"
+        % (0x10000 + ((int(m[1], 16) - 0xD800) << 10) + (int(m[2], 16) - 0xDC00)),
+        json.dumps(text),
+    )
 
 
 def vec(items: list[str]) -> str:
