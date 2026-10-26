@@ -26,6 +26,15 @@ def q(text: str) -> str:
     )
 
 
+# Python codec name -> the name R's file() expects.
+R_ENCODINGS = {
+    "utf-8-sig": "UTF-8-BOM",
+    "utf-16": "UTF-16",
+    "cp1252": "windows-1252",
+    "latin-1": "latin1",
+}
+
+
 def vec(items: list[str]) -> str:
     return "c(" + ", ".join(q(i) for i in items) + ")"
 
@@ -36,20 +45,27 @@ def loader(
     excluded: list[tuple[str, str]],
     kept: list[str],
     total: int,
+    encoding: str = "utf-8-sig",
+    dedupe: bool = False,
 ) -> str:
-    """`df <- ...` plus the user's row filter and column choice."""
+    """`df <- ...` plus the user's row filter and column choice.
+
+    `encoding` is how the app decoded the file (Python's name for it); `dedupe` is set when the app
+    renamed repeated column names, which `make.unique` reproduces (amount, amount.1).
+    """
     low = filename.lower()
     if low.endswith(".xlsx"):
-        read = (
-            f"as.data.frame(readxl::read_excel({q(filename)}, na = {vec(na_values)}))"
-        )
+        repair = ', .name_repair = "minimal"' if dedupe else ""
+        read = f"as.data.frame(readxl::read_excel({q(filename)}, na = {vec(na_values)}{repair}))"
     else:
         fn = "read.delim" if low.endswith(".tsv") else "read.csv"
         read = (
             f"{fn}({q(filename)}, na.strings = {vec(na_values)}, strip.white = TRUE, check.names = FALSE,\n"
-            f'  stringsAsFactors = FALSE, fileEncoding = "UTF-8-BOM")'
+            f"  stringsAsFactors = FALSE, fileEncoding = {q(R_ENCODINGS.get(encoding, 'UTF-8-BOM'))})"
         )
     code = f"df <- {read}"
+    if dedupe:
+        code += "\nnames(df) <- make.unique(names(df))"
     for col, value in excluded:
         num = parse_number(value)
         if value == "":  # blank cells are read as NA

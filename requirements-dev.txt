@@ -1,0 +1,6 @@
+# Everything the CI and contributors need on top of requirements.txt.
+-r requirements.txt
+pylint
+# Only tools/generate_placeholders.py uses Pillow. Pillow 13 needs Python 3.11+, so 3.10 gets 12.x.
+pillow>=13.0.0; python_version >= "3.11"
+pillow>=11.0.0; python_version < "3.11"

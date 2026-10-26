@@ -2,4 +2,3 @@ fastapi>=0.158.1
 uvicorn>=0.54.0
 python-multipart>=0.0.32
 openpyxl>=3.1.5      # .xlsx uploads
-pillow>=13.0.0       # tools/generate_placeholders.py

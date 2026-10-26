@@ -83,7 +83,10 @@ export function initDrawer(container) {
 
 // ------------------------------------------------------------ open / close
 
+let closeTimer = null;   // the pending "hide after the slide-out" step
+
 function open(cat) {
+  clearTimeout(closeTimer);          // reopened mid-close: do not hide it afterwards
   state.opener = document.activeElement;
   drawer.hidden = false;
   drawer.classList.remove('is-open');
@@ -94,13 +97,14 @@ function open(cat) {
 }
 
 function close() {
+  clearTimeout(closeTimer);
   drawer.classList.remove('is-open');
   const finish = () => {
     drawer.hidden = true;
     state.opener?.focus?.();
   };
   if (prefersReducedMotion()) finish();
-  else setTimeout(finish, 240);
+  else closeTimer = setTimeout(finish, 240);
 }
 
 function setExports() {
@@ -130,11 +134,13 @@ async function show(cat) {
   let cards = state.results[cat];
   // Not seen on the stream (e.g. page reloaded mid-job)? Ask the API.
   if (!cards && state.jobId && !state.errors[cat]) {
+    const jobId = state.jobId;
     try {
-      const res = await api.getResults(state.jobId, cat);
-      if (res.ready) cards = state.results[cat] = res.cards;
+      const res = await api.getResults(jobId, cat);
+      // A new analysis may have started while this request was in flight: its answer is stale then.
+      if (state.jobId === jobId && res.ready) cards = state.results[cat] = res.cards;
     } catch { /* fall through to the empty state */ }
-    if (state.cat !== cat) return;    // user switched cats meanwhile
+    if (state.cat !== cat || state.jobId !== jobId) return;    // user switched cats or jobs meanwhile
   }
 
   body.replaceChildren();
@@ -255,17 +261,19 @@ function headerPicks(cat, card, details, message, focusPick) {
 
   const change = async () => {
     const previous = spec.picks.map(p => p.value);
+    const jobId = state.jobId;
     selects.forEach(sel => { sel.disabled = true; });
     message.textContent = '';
     try {
-      if (!state.jobId) throw new Error('No active analysis');
+      if (!jobId) throw new Error('No active analysis');
       const result = await spec.redraw(selects.map(sel => sel.value));
+      if (state.jobId !== jobId) return;     // a new analysis started meanwhile: this card is gone
       const cards = state.results[cat];
       const index = cards?.findIndex(item => item.id === card.id) ?? -1;
       if (index >= 0) cards[index] = result.card;
       // Replace just this card so its code, table and PNG export follow the new columns.
       const focus = selects.findIndex(sel => sel === document.activeElement);
-      details.parentElement.replaceWith(renderCard(cat, result.card, details.open, focus >= 0 ? focus : 0));
+      if (details.isConnected) details.parentElement.replaceWith(renderCard(cat, result.card, details.open, focus >= 0 ? focus : 0));
     } catch (error) {
       message.textContent = error.message || spec.failed;
       selects.forEach((sel, i) => { sel.value = previous[i]; sel.disabled = false; });

@@ -247,7 +247,7 @@ async def export_zip(job_id: str) -> Response:
     job = _job_or_404(job_id)
     name = _safe_stem(job.file.filename)
     return Response(
-        build_zip(job),
+        await asyncio.to_thread(build_zip, job),  # compressing a big export must not stall the server
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{name}_slothhh.zip"'},
     )
@@ -258,7 +258,7 @@ async def export_notebook(job_id: str) -> Response:
     job = _job_or_404(job_id)
     name = _safe_stem(job.file.filename)
     return JSONResponse(
-        build_notebook(job),
+        await asyncio.to_thread(build_notebook, job),
         media_type="application/x-ipynb+json",
         headers={"Content-Disposition": f'attachment; filename="{name}_slothhh.ipynb"'},
     )

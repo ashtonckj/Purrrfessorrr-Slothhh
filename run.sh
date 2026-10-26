@@ -12,7 +12,12 @@ if [ ! -x .venv/bin/python ]; then
   "$PY" -m venv .venv
 fi
 
-echo "Installing requirements (first run takes a minute)..."
-.venv/bin/python -m pip install --disable-pip-version-check -q -r requirements.txt
+# Install only when requirements.txt changed since the last successful install.
+STAMP=.venv/.requirements.stamp
+if ! cmp -s requirements.txt "$STAMP" 2>/dev/null; then
+  echo "Installing requirements (first run takes a minute)..."
+  .venv/bin/python -m pip install --disable-pip-version-check -q -r requirements.txt
+  cp requirements.txt "$STAMP"
+fi
 
 exec .venv/bin/python app.py "$@"

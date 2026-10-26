@@ -38,7 +38,7 @@
   --text-muted: #c9b99a;
   --border: #120d0a;
   --shadow: #120d0a;
-  --primary: var(--leaf);
+  --primary: var(--leaf-deep);
   --on-primary: var(--white);
   --focus: var(--yellow);
   --bubble-in: #3a3140;
@@ -141,7 +141,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 :root[data-theme="night"] .btn { background: var(--cream-shadow); color: var(--ink); }
 /* Hover dims instead of brightening, and the primary rules come last so green stays green. */
 :root[data-theme="night"] .btn:hover { background: var(--tan); }
-:root[data-theme="night"] .btn--primary { background: var(--leaf); color: var(--white); }
+:root[data-theme="night"] .btn--primary { background: var(--leaf-deep); color: var(--white); }
 :root[data-theme="night"] .btn--primary:hover { background: var(--forest); }
 
 .btn:active {
@@ -154,7 +154,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 
 .btn--primary { background: var(--primary); color: var(--on-primary); }
-.btn--primary:hover { background: var(--leaf); }
+.btn--primary:hover { background: var(--leaf-deep); }
 
 .btn--icon { padding: 4px; min-width: 40px; min-height: 40px; }
 
@@ -225,6 +225,8 @@ dialog.settings::backdrop { background: rgba(43, 29, 20, 0.55); }
 dialog.picker { max-width: 820px; }
 .picker__fill { padding: 18px 20px; display: grid; gap: 14px; max-height: 88vh; overflow-y: auto; }
 .picker__fill h2 { margin: 0; font-size: var(--fs-l); word-break: break-all; }
+.picker__warnings { padding: 10px 12px; background: var(--yellow); color: var(--ink); box-shadow: 0 0 0 2px var(--border); font-size: var(--fs-xs); line-height: 1.6; }
+.picker__warnings ul { margin: 6px 0 0; padding-left: 18px; }
 .picker__group { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; font-size: var(--fs-s); }
 .picker__group legend, .picker__target > span { color: var(--text-muted); padding: 0; margin-bottom: 6px; }
 .picker__bulk { display: flex; gap: 6px; }

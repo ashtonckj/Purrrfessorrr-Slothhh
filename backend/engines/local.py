@@ -300,6 +300,8 @@ class Facts:
     box: dict | None
     health_score: int
     head: list[list[str]]  # the first kept rows, in the order of `cols`
+    encoding: str = "utf-8-sig"  # how the file was decoded; the exported code must read it the same way
+    deduped: bool = False  # repeated column names were renamed (amount, amount.1)
 
 
 @dataclass
@@ -1437,6 +1439,8 @@ def analyse(info: FileInfo, selection: Selection | None = None) -> Facts:
         box=box,
         health_score=round(max(0, min(100, score))),
         head=[[c[:40] for c in r] for r in rows[:5]],
+        encoding=info.encoding,
+        deduped=info.deduped,
     )
 
 
@@ -1652,10 +1656,11 @@ def _loader(f: Facts) -> str:
     """`df = ...` plus the user's row filter and column choice."""
     name = f.filename.lower()
     na = f"keep_default_na=False, na_values={NA_VALUES!r}"
+    enc = "" if f.encoding == "utf-8-sig" else f", encoding={q(f.encoding)}"
     read = (
         f"pd.read_excel({q(f.filename)}, {na})"
         if name.endswith(".xlsx")
-        else f"pd.read_csv({q(f.filename)}{', sep=chr(9)' if name.endswith('.tsv') else ''}, {na})"
+        else f"pd.read_csv({q(f.filename)}{', sep=chr(9)' if name.endswith('.tsv') else ''}{enc}, {na})"
     )
     code = f"df = {read}"
     for col, value in f.excluded:
@@ -1674,7 +1679,13 @@ def _loader(f: Facts) -> str:
 
 def _r_loader(f: Facts) -> str:
     return rcode.loader(
-        f.filename, NA_VALUES, f.excluded, [c.name for c in f.cols], f.all_columns
+        f.filename,
+        NA_VALUES,
+        f.excluded,
+        [c.name for c in f.cols],
+        f.all_columns,
+        f.encoding,
+        f.deduped,
     )
 
 

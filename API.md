@@ -13,7 +13,7 @@ Cat ids used everywhere: `detective`, `artist`, `scribe`, `coder`, `janitor`.
 | Method | Path | Body | Returns |
 |---|---|---|---|
 | GET | `/api/config` | | `{ engine, max_upload_mb, cats: {id: role} }` |
-| POST | `/api/upload` | multipart, field `file` (`.csv`, `.tsv`, `.xlsx`) | `{ file_id, filename, rows, cols, size_bytes, columns: [...], preview: [[...]] }` (first 8 rows as text) |
+| POST | `/api/upload` | multipart, field `file` (`.csv`, `.tsv`, `.xlsx`) | `{ file_id, filename, rows, cols, size_bytes, columns: [...], preview: [[...]], warnings: [...] }` (first 8 rows as text). Repeated column names are made unique (`amount`, `amount.1`). `warnings` are plain sentences about the import (renamed columns, rows with more or fewer cells than the header, a file read as Windows-1252 because it is not UTF-8); the upload dialog shows them. |
 | POST | `/api/preview` | `{ "file_id": "...", "exclude": [{ "column": 1, "value": "x" }], "show_excluded": true, "cursor": 0, "limit": 100 }` | `{ rows: [[...]], excluded: [bool], next, done }`: the next page of data rows after the first `cursor` rows of the file, with rows matching an exclude rule flagged (or skipped when `show_excluded` is false). Pass `next` back as `cursor`. Used by the upload dialog. |
 | POST | `/api/analyze` | `{ "file_id": "...", "columns": [0, 2] or null, "target": 2 or null, "exclude": [{ "column": 1, "value": "x" }] }` | `{ job_id }` (work starts in the background). Columns are indexes into `columns`; omitted = all. `exclude` drops rows whose cell (trimmed text) equals `value`. |
 | GET | `/api/jobs/{job_id}/events` | | Server-Sent Events stream, see below |

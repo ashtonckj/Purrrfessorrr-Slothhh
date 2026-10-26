@@ -23,6 +23,11 @@
   --charcoal: #4a4250;
   --orange: #e08a3c;
 
+  /* Darker variants for where a colour carries text (not in generate_placeholders.py's palette).
+     White on --leaf is 3.65:1 and --orange on white is 2.6:1; these clear the 4.5:1 minimum. */
+  --leaf-deep: #4f7d45;    /* white text on it: 4.6:1 */
+  --orange-deep: #9c500f;  /* on the white bubble: 5.7:1 */
+
   /* UI roles */
   --bg: var(--cream);
   --surface: var(--white);

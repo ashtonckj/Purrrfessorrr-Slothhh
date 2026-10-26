@@ -10,7 +10,7 @@ const FIRST_PAGE = 30;   // rows fetched when a rule changes
 const NEXT_PAGE = 100;   // rows per "show more"
 
 /**
- * @param {{ file_id: string, filename: string, rows: number, columns: string[], preview: string[][] }} info  the /api/upload response
+ * @param {{ file_id: string, filename: string, rows: number, columns: string[], preview: string[][], warnings?: string[] }} info  the /api/upload response
  * @returns {Promise<{ columns: number[], target: number|null, exclude: {column: number, value: string}[] } | null>}
  *          null when the user cancels
  */
@@ -122,6 +122,9 @@ export function pickColumns(info) {
 
   const form = el('form', { method: 'dialog', class: 'picker__fill px-fill' },
     el('h2', { id: 'picker-title', text: PICKER.title(info.filename) }),
+    info.warnings?.length ? el('div', { class: 'picker__warnings', role: 'status' },
+      el('strong', { text: PICKER.warnings }),
+      el('ul', {}, info.warnings.map(text => el('li', { text })))) : null,
     el('fieldset', { class: 'picker__group' },
       el('legend', { text: PICKER.columns(cols.length) }),
       el('div', { class: 'picker__bulk' },

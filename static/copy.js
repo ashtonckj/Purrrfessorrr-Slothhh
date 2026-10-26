@@ -164,6 +164,7 @@ export const OFFICE = {
 /** The upload dialog: columns, target, rows to leave out. */
 export const PICKER = {
   title: name => `what should the cats read in ${name}?`,
+  warnings: 'heads up: this file has some problems',
   columns: n => `columns (${n})`,
   all: 'all',
   none: 'none',

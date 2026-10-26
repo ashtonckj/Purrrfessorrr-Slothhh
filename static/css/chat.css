@@ -146,11 +146,12 @@
 .msg--artist { --cat-color: var(--red); }
 .msg--scribe { --cat-color: var(--blue); }
 .msg--coder { --cat-color: var(--charcoal); }
-.msg--janitor { --cat-color: var(--orange); }
+.msg--janitor { --cat-color: var(--orange-deep); }
 :root[data-theme="night"] .msg--detective { --cat-color: var(--tan); }
 :root[data-theme="night"] .msg--artist { --cat-color: var(--pink); }
 :root[data-theme="night"] .msg--scribe { --cat-color: #8fb0e0; }
 :root[data-theme="night"] .msg--coder { --cat-color: var(--grey); }
+:root[data-theme="night"] .msg--janitor { --cat-color: var(--orange); }
 
 .msg__name {
   display: block;
