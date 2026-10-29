@@ -45,6 +45,7 @@ class GeneratedRTest(unittest.TestCase):
         (self.dir / "analysis.R").write_text(script, encoding="utf-8")
         done = subprocess.run(
             [RSCRIPT, "--vanilla", "analysis.R"],
+            check=False,  # the assert below reports R's error output instead
             cwd=self.dir,
             capture_output=True,
             text=True,

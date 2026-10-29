@@ -812,7 +812,7 @@ def _mentioned_columns(facts: Facts, text: str) -> list[tuple[Col, int, int]]:
     """
     found, masked = [], text
     for c in sorted(facts.cols, key=lambda c: -len(c.name)):
-        for variant in {c.name.lower(), c.name.lower().replace("_", " ")}:
+        for variant in (c.name.lower(), c.name.lower().replace("_", " ")):
             m = variant and re.search(
                 rf"(?<!\w){re.escape(variant)}(?:e?s)?(?!\w)", masked
             )
@@ -850,18 +850,14 @@ def _mentioned_value(
     facts: Facts, text: str, col: Col | None
 ) -> tuple[Col, str, int] | None:
     """A text value from the data that the message names ("Labor Day"): (column, value, count). Longest wins."""
-    best = None
-    for c in [col] if col else facts.cols:
-        if c.kind != "text":
-            continue
-        for v, n in c.top:
-            if (
-                len(v) >= 3
-                and re.search(rf"(?<!\w){re.escape(v.lower())}(?!\w)", text)
-                and (best is None or len(v) > len(best[1]))
-            ):
-                best = (c, v, n)
-    return best
+    hits = [
+        (c, v, n)
+        for c in ([col] if col else facts.cols)
+        if c.kind == "text"
+        for v, n in c.top
+        if len(v) >= 3 and re.search(rf"(?<!\w){re.escape(v.lower())}(?!\w)", text)
+    ]
+    return max(hits, key=lambda hit: len(hit[1]), default=None)  # the first of equally long ones
 
 
 def _values_text(col: Col, rows: int) -> str:
@@ -1278,7 +1274,7 @@ def _best_pair(measures: list[Col]):
         return None, []
     n = len(cands[0].numbers)
     step = max(1, n // CORR_SAMPLE)
-    best, ranked = None, []
+    pairs = []
     for i, a in enumerate(cands):
         for b in cands[i + 1 :]:
             xy = [
@@ -1290,15 +1286,13 @@ def _best_pair(measures: list[Col]):
                 r = statistics.correlation([x for x, _ in xy], [y for _, y in xy])
             except statistics.StatisticsError:
                 continue  # too few points, or a constant column
-            ranked.append((a.name, b.name, r))
-            if best is None or abs(r) > abs(best[2]):
-                best = (a, b, r)
-    ranked.sort(key=lambda t: -abs(t[2]))
-    if best is None:
+            pairs.append((a, b, r))
+    if not pairs:
         return None, []
-    a, b, _ = best
+    pairs.sort(key=lambda t: -abs(t[2]))  # stable: of equally strong pairs, the first found leads
+    a, b, _ = pairs[0]
     points, r, sampled = _scatter_data(a.numbers, b.numbers)
-    return (a, b, r, points, sampled), ranked
+    return (a, b, r, points, sampled), [(a_.name, b_.name, r_) for a_, b_, r_ in pairs]
 
 
 def _scatter_data(xs: list[float | None], ys: list[float | None]):

@@ -84,7 +84,8 @@ class StubOllama(BaseHTTPRequestHandler):
         if self.mode == "slow":
             time.sleep(1.5)
         if self.mode == "missing":
-            return self._json({"error": f"model '{body['model']}' not found"}, 404)
+            self._json({"error": f"model '{body['model']}' not found"}, 404)
+            return
         self._json(
             {
                 "message": {"role": "assistant", "content": "hello from the stub"},

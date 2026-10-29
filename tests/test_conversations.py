@@ -27,7 +27,7 @@ def traffic_csv(path: Path) -> FileInfo:
             f"None,{270 + rng.random() * 30:.2f},{rng.choice([0, 0, 0, 0.5])},{rng.choice(['Clear', 'Clouds', 'Snow'])},"
             f"2016-{1 + day // 28:02d}-{1 + day % 28:02d} {hour:02d}:00:00,{1000 + 200 * hour + rng.randint(0, 500)}"
         )
-    path.write_text("\n".join(rows) + "\n")
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
     info = FileInfo("t", path.name, path, path.stat().st_size)
     inspect(info)
     return info
@@ -163,7 +163,7 @@ class TrafficConversationTest(unittest.TestCase):
         top = self.ask("what is the highest traffic_volume?")[0]
         expected = max(
             int(r.split(",")[-1])
-            for r in self.job.file.path.read_text().splitlines()[1:]
+            for r in self.job.file.path.read_text(encoding="utf-8").splitlines()[1:]
         )
         self.assertIn(f"The highest traffic_volume is {expected:,}", top.text)
         edit = self.ask("Change the histogram to 30 bins.")[0]

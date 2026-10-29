@@ -6,6 +6,7 @@ Run with: python -m unittest discover tests
 
 import asyncio
 import csv
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -19,8 +20,9 @@ from backend.jobs import Job
 
 class RedrawTest(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        path = Path(self.tmp.name) / "cols.csv"
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        path = Path(tmp) / "cols.csv"
         with path.open("w", newline="") as f:
             w = csv.writer(f)
             w.writerow(["a", "b", "c", "label"])
@@ -29,9 +31,6 @@ class RedrawTest(unittest.TestCase):
         inspect(self.info)
         self.facts = analyse(self.info)
         self.cards = {c["id"]: c for c in BUILDERS["artist"](self.facts)}
-
-    def tearDown(self):
-        self.tmp.cleanup()
 
     def test_cards_offer_number_columns_only(self):
         for card_id in ("artist-boxplot", "artist-distribution", "artist-scatter"):
