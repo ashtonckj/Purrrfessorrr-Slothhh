@@ -78,7 +78,7 @@ class HeatmapTest(unittest.TestCase):
 
     def test_matrix_matches_python_correlations(self):
         header, rows = self.numbers()
-        card = _card(_facts(header, rows), "artist-heatmap")
+        card = _card(_facts(header, rows), "artist-correlations")
         chart = card["chart"]
         self.assertEqual(chart["type"], "heatmap")
         self.assertEqual(chart["labels"], header)
@@ -93,7 +93,9 @@ class HeatmapTest(unittest.TestCase):
         self.assertLess(m[0][3], 0)
         self.assertTrue(all(-1 <= v <= 1 for row in m for v in row))
         self.assertIn("does not prove causation", card["description"])
-        self.assertEqual(card["table"]["columns"], ["column", *header])
+        self.assertEqual(card["table"]["columns"], ["column_a", "column_b", "r"])
+        self.assertEqual(card["table"]["rows"][0][:2], ["a", "b"])  # pairs, strongest first
+        self.assertIn("print(corr.round(2))", card["code"]["python"])
         self.assertIn("python", card["code"])
         self.assertIn("pairwise", card["code"]["r"])
 
@@ -102,7 +104,7 @@ class HeatmapTest(unittest.TestCase):
         for i in range(0, 60, 3):
             rows[i][1] = ""  # blanks in b
         facts = _facts(header, rows)
-        m = _card(facts, "artist-heatmap")["chart"]["matrix"]
+        m = _card(facts, "artist-correlations")["chart"]["matrix"]
         pairs = [(row[0], row[1]) for row in rows if row[1] != ""]
         expected = statistics.correlation([x for x, _ in pairs], [y for _, y in pairs])
         self.assertAlmostEqual(m[0][1], expected, places=3)
@@ -111,7 +113,7 @@ class HeatmapTest(unittest.TestCase):
         header, rows = self.numbers()
         header = header + ["const", "row_id", "flag"]
         rows = [r + [7, i, i % 2] for i, r in enumerate(rows)]
-        card = _card(_facts(header, rows), "artist-heatmap")
+        card = _card(_facts(header, rows), "artist-correlations")
         self.assertEqual(card["chart"]["labels"], ["a", "b", "c", "d"])
         self.assertIn("left out", card["description"])
 
@@ -127,31 +129,31 @@ class HeatmapTest(unittest.TestCase):
                     round(x + rng.gauss(0, 1), 3),
                 ]
             )
-        card = _card(_facts(["a", "b", "c"], rows), "artist-heatmap")
+        card = _card(_facts(["a", "b", "c"], rows), "artist-correlations")
         m = card["chart"]["matrix"]
         self.assertIsNone(m[0][1])
         self.assertIsNone(m[1][0])
         self.assertIsNotNone(m[0][2])
-        self.assertEqual(
-            card["table"]["rows"][0][2], ""
-        )  # empty cell in the CSV, not "None"
+        listed = {tuple(row[:2]) for row in card["table"]["rows"]}
+        self.assertNotIn(("a", "b"), listed)  # no r, so no row in the pairs table (and no "None" in the CSV)
+        self.assertIn(("a", "c"), listed)
 
     def test_too_few_number_columns_gives_no_heatmap(self):
         header, rows = self.numbers(cols=("a", "b", "c", "d"))
         two = _facts(header[:2], [r[:2] for r in rows])
-        self.assertIsNone(_card(two, "artist-heatmap"))
+        self.assertIsNone(_card(two, "artist-correlations"))
         self.assertIsNone(
-            _card(_facts(["a"], [[r[0]] for r in rows]), "artist-heatmap")
+            _card(_facts(["a"], [[r[0]] for r in rows]), "artist-correlations")
         )
         self.assertIsNone(
-            _card(_facts(["name", "a"], [["x", r[0]] for r in rows]), "artist-heatmap")
+            _card(_facts(["name", "a"], [["x", r[0]] for r in rows]), "artist-correlations")
         )
 
     def test_many_columns_are_capped(self):
         rng = random.Random(1)
         header = [f"num_{i}" for i in range(40)]
         rows = [[round(rng.gauss(0, 1), 3) for _ in header] for _ in range(200)]
-        chart = _card(_facts(header, rows), "artist-heatmap")["chart"]
+        chart = _card(_facts(header, rows), "artist-correlations")["chart"]
         self.assertEqual(len(chart["labels"]), HEAT_MAX)
         self.assertEqual(len(chart["matrix"]), HEAT_MAX)
         self.assertTrue(all(len(row) == HEAT_MAX for row in chart["matrix"]))

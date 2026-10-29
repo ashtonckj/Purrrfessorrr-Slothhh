@@ -2,12 +2,13 @@
 
 Who does what:
 - Python computes every number. run() and analyse() are LocalEngine's, unchanged.
-- The rules answer the sure things: named statistics, chart edits, questions about the generated code.
+- The rules answer the sure things: named statistics, questions about the generated code, and chart changes
+  (by pointing to the chart cards' dropdowns).
 - Gemma discusses: why / explain / advice / machine-learning questions and their follow-ups, from facts
   Python computed. Sentences about the file with numbers not in those facts are removed (check_claims).
 - When the rules cannot really answer, Gemma reads the message as a tool request (JSON, checked here).
   Measured on 17 paraphrases it picked the right tool 14 times with gemma3:4b and 5 times with gemma3:1b,
-  so lookups say how they were read and chart changes are asked about first.
+  so lookups say how they were read.
 The order is in GemmaEngine's docstring. If Ollama is not running, the rules answer what they can.
 """
 
@@ -29,14 +30,12 @@ from . import lines, talk
 from .base import Reply
 from .local import (
     HELP_HINT,
-    NO,
     TOPICS,
-    YES,
     Convo,
     Facts,
     LocalEngine,
+    CHART_EDIT,
     _as_list,
-    _chart_request,
     _is_id,
 )
 
@@ -148,7 +147,6 @@ TOOLS = (
     "columns",
     "rows",
     "values",
-    "histogram",
     "explain",
     "smalltalk",
     "unclear",
@@ -167,23 +165,23 @@ MAX_ENUM = 100  # columns listed in the JSON schema; wider files get a free-text
 ROUTE = """You turn a message into one tool request for a data-analysis app. Reply with JSON only.
 Tools: stat (one number about a column: min, max, mean, median, std, sum, mode), missing (missing or blank values),
 outliers (unusual or extreme values), duplicates (repeated rows), columns (list the columns), rows (show example rows),
-values (the different values of a text column), histogram (show or change a histogram), explain (a general
-data-science or code question), smalltalk (greetings, thanks, goodbye), unclear (anything else).
-Use "" for column or stat and 0 for bins when they do not apply.
+values (the different values of a text column), explain (a general data-science or code question),
+smalltalk (greetings, thanks, goodbye), unclear (anything else).
+Use "" for column or stat when they do not apply.
 Columns: {columns}
 Column discussed last: {last}"""
 ROUTE_EXAMPLES = [
     (
         "how old is the youngest person",
-        {"tool": "stat", "column": "{number}", "stat": "min", "bins": 0},
+        {"tool": "stat", "column": "{number}", "stat": "min"},
     ),
     (
         "r there gaps in it",
-        {"tool": "missing", "column": "{last}", "stat": "", "bins": 0},
+        {"tool": "missing", "column": "{last}", "stat": ""},
     ),
-    ("what's a p-value", {"tool": "explain", "column": "", "stat": "", "bins": 0}),
-    ("cheers mate", {"tool": "smalltalk", "column": "", "stat": "", "bins": 0}),
-    ("blorp", {"tool": "unclear", "column": "", "stat": "", "bins": 0}),
+    ("what's a p-value", {"tool": "explain", "column": "", "stat": ""}),
+    ("cheers mate", {"tool": "smalltalk", "column": "", "stat": ""}),
+    ("blorp", {"tool": "unclear", "column": "", "stat": ""}),
 ]
 
 EXPLAIN = """You are the data-science tutor inside Purrrfessorrr Slothhh, a beginner-friendly data analysis app.
@@ -231,12 +229,11 @@ def tool_schema(columns: list[str]) -> dict:
     )
     return {
         "type": "object",
-        "required": ["tool", "column", "stat", "bins"],
+        "required": ["tool", "column", "stat"],
         "properties": {
             "tool": {"type": "string", "enum": list(TOOLS)},
             "column": column,
             "stat": {"type": "string", "enum": ["", *STATS]},
-            "bins": {"type": "integer"},
         },
     }
 
@@ -252,17 +249,8 @@ def parse_tool(raw: str, facts: Facts, message: str, last: str = "") -> dict | N
         return None
     if not isinstance(data, dict) or data.get("tool") not in TOOLS:
         return None
-    name, stat, bins = (
-        data.get("column") or "",
-        data.get("stat") or "",
-        data.get("bins") or 0,
-    )
-    if (
-        not isinstance(name, str)
-        or stat not in ("", *STATS)
-        or not isinstance(bins, int)
-        or isinstance(bins, bool)
-    ):
+    name, stat = data.get("column") or "", data.get("stat") or ""
+    if not isinstance(name, str) or stat not in ("", *STATS):
         return None
     col = next((c for c in facts.cols if c.name.lower() == name.strip().lower()), None)
     if name and col is None:
@@ -273,12 +261,10 @@ def parse_tool(raw: str, facts: Facts, message: str, last: str = "") -> dict | N
         or (col.name == last and re.search(r"\b(it|its|that|this|them|those)\b", said))
     ):
         return None
-    if bins and str(bins) not in re.findall(r"\d+", message):
-        bins = 0  # a number the user never wrote
     tool = data["tool"]
     if (tool == "stat" and not stat) or (tool == "values" and col is None):
         return None
-    return {"tool": tool, "column": col, "stat": stat or None, "bins": bins or None}
+    return {"tool": tool, "column": col, "stat": stat or None}
 
 
 def canonical(route: dict) -> str:
@@ -291,10 +277,6 @@ def canonical(route: dict) -> str:
             if col
             else f"what is the {STATS[route['stat']]} value?"
         )
-    if tool == "histogram":
-        of = f" of {col}" if col else ""
-        bins = f" with {route['bins']} bins" if route["bins"] else ""
-        return f"show the histogram{of}{bins}"
     return {
         "missing": f"missing values in {col}"
         if col
@@ -361,12 +343,12 @@ def _tidy(text: str, limit: int = 900) -> str:
 class GemmaEngine(LocalEngine):
     """One question goes through these steps, first match wins:
 
-    1. sure things the rules do best: a yes/no to "did you mean ...?", "are you an AI?", chart edits;
+    1. sure things the rules do best: "are you an AI?", and chart changes (pointed to the cards' dropdowns);
     2. discussion (why, explain, advice, machine-learning words): Gemma, with the file's facts and the last turns;
     3. the rules;
     4. when the rules did not really answer: a follow-up to the last discussion goes back to Gemma; anything else
-       is read by Gemma as a tool request, checked, and answered (lookups), asked about (chart changes),
-       discussed (real questions) or met with a clarifying question (vague ones).
+       is read by Gemma as a tool request, checked, and answered (lookups), discussed (real questions) or met
+       with a clarifying question (vague ones).
     """
 
     name = "gemma"
@@ -374,9 +356,6 @@ class GemmaEngine(LocalEngine):
     def __init__(self, speed: float, llm: Ollama) -> None:
         super().__init__(speed)
         self.llm = llm
-        self._guesses: dict[
-            str, str
-        ] = {}  # job id -> the question a cat asked "did you mean ...?" about
         self._told: set[str] = set()  # jobs already told that the model is down
         self._discussing: set[str] = (
             set()
@@ -415,18 +394,12 @@ class GemmaEngine(LocalEngine):
         text = self._normalise(facts, convo, question)
         bare = text.strip(" .!?")
 
-        guess = self._guesses.pop(job.id, None)
-        if guess and YES.fullmatch(bare):
-            return _followup(await super()._answer(job, guess))
-        if guess and NO.fullmatch(bare):
-            return Reply("sloth", lines.CHAT_NEVERMIND, followup=True)
         if talk.WHO.search(text) and len(text.split()) <= 12:
             return Reply("sloth", lines.CHAT_WHO_GEMMA.format(model=self.llm.model))
 
-        chart = _chart_request(text, question, facts, convo) is not None
         answering_a_cat = convo.pending is not None and len(text.split()) <= 3
         if (
-            not chart
+            not CHART_EDIT.search(text)
             and not answering_a_cat
             and (talk.WHY.search(text) or ADVICE.search(text) or ML.search(text))
         ):
@@ -559,13 +532,6 @@ class GemmaEngine(LocalEngine):
         if route["tool"] == "explain":
             return await self._discuss(job, facts, convo, question, text)
         ask = canonical(route)
-        if route["tool"] == "histogram":  # it would change a chart: ask first
-            self._guesses[job.id] = ask
-            return Reply(
-                "artist",
-                f"{lines.CHAT_VOICE['artist']} {lines.CHAT_GEMMA_GUESS.format(question=ask)}",
-                ["yes", "no"],
-            )
         answers = _as_list(
             await super()._answer(job, ask)
         )  # a read-only lookup: answer, and say how it was read
@@ -730,7 +696,3 @@ def _context(job: Job, facts: Facts, convo: Convo, cat: str, text: str) -> str:
 def _unvoiced(said: str) -> str:
     """An earlier answer without the cats' "*adjusts hat* my case notes say:" openers."""
     return re.sub(r"\*[^*]{1,40}\*[^:]{0,40}:\s*", "", said)
-
-
-def _followup(reply: Reply | list[Reply]) -> list[Reply]:
-    return [replace(r, followup=True) for r in _as_list(reply)]

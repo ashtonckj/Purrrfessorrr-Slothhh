@@ -110,13 +110,26 @@ df[[{q(col)}]] <- suppressWarnings(as.numeric(gsub("[$,]", "", as.character(df[[
 # ------------------------------------------------------------------- artist
 
 
-def histogram(spec: dict) -> str:
-    """`spec` is the histogram spec from local.histogram_card; equal-width bins from min to max, like matplotlib."""
-    n = spec["bins"]
-    return f"""x <- {number(spec["column"])}
+def histogram(col: str, bins: int) -> str:
+    """Equal-width bins from min to max, like matplotlib."""
+    return f"""x <- {number(col)}
 r <- range(x, na.rm = TRUE)
-hist(x, breaks = if (r[1] < r[2]) seq(r[1], r[2], length.out = {n + 1}) else {n},
-     col = "grey80", main = {q(spec["title"])}, xlab = {q(spec["x_label"])}, ylab = {q(spec["y_label"])})"""
+hist(x, breaks = if (r[1] < r[2]) seq(r[1], r[2], length.out = {bins + 1}) else {bins},
+     col = "grey80", main = {q(col)}, xlab = {q(col)}, ylab = "count")"""
+
+
+def boxplot(col: str) -> str:
+    """Drawn with bxp() from quantile() (type 7, the same quartiles as pandas), not boxplot()'s own hinges,
+    so the box matches the app's. A flat middle half gets whiskers over the whole range and no dots."""
+    return f"""x <- {number(col)}
+x <- x[!is.na(x)]
+q <- quantile(x, c(0.25, 0.5, 0.75))
+iqr <- q[[3]] - q[[1]]
+fence <- if (iqr > 0) c(q[[1]] - 1.5 * iqr, q[[3]] + 1.5 * iqr) else range(x)
+out <- x[x < fence[1] | x > fence[2]]
+whiskers <- range(x[x >= fence[1] & x <= fence[2]])
+bxp(list(stats = matrix(c(whiskers[1], q, whiskers[2])), n = length(x), out = out,
+         group = rep(1, length(out)), names = {q(col)}), main = {q("Box plot of " + col)})"""
 
 
 def number_summary(cols: list[str]) -> str:
@@ -132,14 +145,11 @@ def category_counts(cols: list[str]) -> str:
 }}"""
 
 
-def correlations(cols: list[str]) -> str:
-    return f"""nums <- sapply(df[{vec(cols)}], function(x) suppressWarnings(as.numeric(x)))
-print(round(cor(nums, use = "pairwise.complete.obs"), 2))"""
-
-
 def heatmap(cols: list[str]) -> str:
     return f"""nums <- sapply(df[{vec(cols)}], function(x) suppressWarnings(as.numeric(x)))
-heatmap(cor(nums, use = "pairwise.complete.obs"), Rowv = NA, Colv = NA, symm = TRUE, scale = "none",
+r <- cor(nums, use = "pairwise.complete.obs")
+print(round(r, 2))
+heatmap(r, Rowv = NA, Colv = NA, symm = TRUE, scale = "none",
         main = "Correlation does not prove causation")"""
 
 

@@ -68,7 +68,7 @@ class Job:
                         ),
                         timeout=keepalive,
                     )
-                except TimeoutError:  # not the builtin on Python 3.10
+                except asyncio.TimeoutError:  # not the builtin TimeoutError on Python 3.10 (see ruff.toml)
                     idle = True
             if idle:
                 # Yield outside the lock: a slow client must not hold up `emit`.

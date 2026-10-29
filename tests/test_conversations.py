@@ -167,11 +167,13 @@ class TrafficConversationTest(unittest.TestCase):
         )
         self.assertIn(f"The highest traffic_volume is {expected:,}", top.text)
         edit = self.ask("Change the histogram to 30 bins.")[0]
-        self.assertEqual(edit.card["spec"]["bins"], 30)
+        self.assertIn(lines.CHAT_CHART_DIY, edit.text)               # the card's dropdowns do that now
         self.assertEqual(self.model.calls, [])
 
     def test_general_words_do_not_trigger_chart_edits(self):
-        self.ask("what are the limitations of a histogram with too many bins?")
+        reply = self.ask("what are the limitations of a histogram with too many bins?")
+        self.assertNotIn(lines.CHAT_CHART_DIY, reply[0].text)       # a question, so Gemma discusses it
+        self.assertTrue(self.model.calls)
         hist = next(
             c for c in self.job.results["artist"] if c["id"] == "artist-distribution"
         )

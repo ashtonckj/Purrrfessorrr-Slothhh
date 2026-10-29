@@ -1,0 +1,2 @@
+# The app supports Python 3.10 (README, CI matrix): never rewrite code to need 3.11+.
+target-version = "py310"

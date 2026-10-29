@@ -20,10 +20,10 @@ Cat ids used everywhere: `detective`, `artist`, `scribe`, `coder`, `janitor`.
 | GET | `/api/results/{job_id}/{cat}` | | `{ cat, ready, cards: [Card] }` |
 | GET | `/api/export/{job_id}/zip` | | `.zip` download (results.json, notebook, per card: README.md, data.csv, chart.json, code.py) |
 | GET | `/api/export/{job_id}/notebook` | | `.ipynb` download |
-| POST | `/api/chat` | `{ "job_id": "..." or null, "message": "..." }` | `{ replies: [{ from, reply, choices, code, followup }] }`: one reply per question in the message. `from` is `sloth` or the cat id that answered; `choices` are short follow-ups to show as buttons, sent back as the next `message`; `code` is `{ python, r }` for a code box (or null); `followup` is true when the reply answers a question the cat asked. `card` is a card the chat changed (a re-drawn histogram, same shape as in `result` events) or null; the frontend shows it in the bubble and swaps it into the drawer. Short code in `reply` is wrapped in backticks. The engine remembers earlier turns of the same job. |
-| POST | `/api/jobs/{job_id}/scatter` | `{ "x": "col", "y": "col" }` | `{ card }`: the artist's scatter card re-drawn for another pair of number columns. |
-| POST | `/api/jobs/{job_id}/boxplot` | `{ "column": "col" }` | `{ card }`: the artist's box plot re-drawn for another number column. |
-| POST | `/api/jobs/{job_id}/distribution` | `{ "column": "col" }` | `{ card }`: the artist's histogram re-drawn for another number column (keeps the bin count). |
+| POST | `/api/chat` | `{ "job_id": "..." or null, "message": "..." }` | `{ replies: [{ from, reply, choices, code, followup }] }`: one reply per question in the message. `from` is `sloth` or the cat id that answered; `choices` are short follow-ups to show as buttons, sent back as the next `message`; `code` is `{ python, r }` for a code box (or null); `followup` is true when the reply answers a question the cat asked. Short code in `reply` is wrapped in backticks. The engine remembers earlier turns of the same job. |
+| POST | `/api/jobs/{job_id}/scatter` | `{ "x": "col", "y": "col" }` | `{ card }`: the artist's scatter card re-drawn for another pair from its `column_choices`. |
+| POST | `/api/jobs/{job_id}/boxplot` | `{ "column": "col" }` | `{ card }`: the artist's box plot re-drawn for another column from its `column_choices`. |
+| POST | `/api/jobs/{job_id}/distribution` | `{ "column": "col", "bins": 30 }` | `{ card }`: the artist's histogram re-drawn for another column from its `column_choices` and a bin count from 2 to 100 (`bins` defaults to 10). |
 | GET | `/api/sample.csv` | | sample CSV (12,000-ish rows of cafe sales, with mess baked in) |
 
 Errors use FastAPI's default shape: HTTP status + `{ "detail": "message" }`.
@@ -68,7 +68,7 @@ progress, so the UI can fly papers to the desks; the file is read meanwhile.
 }
 ```
 
-Artist cards with header dropdowns carry the options: `scatter_columns` (scatter) or `column_choices` (box plot, distribution). Only `id`, `title` and `description` are required. `chart` is a spec the
+Artist cards with header dropdowns carry their options in `column_choices` (distribution, box plot, scatter); the distribution card also has `bin_choices` and `spec: {column, bins}`. A redraw only accepts a column the card offered (422 otherwise). Only `id`, `title` and `description` are required. `chart` is a spec the
 frontend draws on a canvas (so "Download chart (PNG)" works offline);
 `points` is used by `scatter`, `labels`/`matrix` (square, `matrix[i][j]` = r or `null`) by `heatmap`, `labels`/`values` by the rest. `table` feeds
 "Download data (CSV)". Every snippet has a Python and an R version (`r` may be null where there is nothing to say).

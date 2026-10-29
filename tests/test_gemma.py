@@ -183,7 +183,7 @@ class ToolCheckTest(unittest.TestCase):
 
     def tool(self, message, **data):
         return parse_tool(
-            json.dumps({"column": "", "stat": "", "bins": 0, **data}),
+            json.dumps({"column": "", "stat": "", **data}),
             self.facts,
             message,
             data.pop("last", ""),
@@ -198,10 +198,6 @@ class ToolCheckTest(unittest.TestCase):
         )
         self.assertEqual(route["column"].name, "unit_price")
         self.assertEqual(canonical(route), "what is the highest unit_price?")
-        route = self.tool(
-            "draw total with 40 bars", tool="histogram", column="total", bins=40
-        )
-        self.assertEqual(canonical(route), "show the histogram of total with 40 bins")
 
     def test_bad_requests_are_rejected(self):
         for raw in (
@@ -209,8 +205,8 @@ class ToolCheckTest(unittest.TestCase):
             "[]",
             '{"tool": "drop_column", "column": "total"}',
             '{"tool": "run_python"}',
-            '{"tool": "stat", "column": "total", "stat": "variance", "bins": 0}',
-            '{"tool": "histogram", "column": "total", "stat": "", "bins": true}',
+            '{"tool": "stat", "column": "total", "stat": "variance"}',
+            '{"tool": "histogram", "column": "total", "stat": ""}',  # charts are changed in their cards, not by the model
         ):
             self.assertIsNone(parse_tool(raw, self.facts, "total"), raw)
         self.assertIsNone(
@@ -222,14 +218,6 @@ class ToolCheckTest(unittest.TestCase):
         self.assertIsNone(
             self.tool("max please", tool="stat", column="", stat="")
         )  # stat without a stat
-
-    def test_numbers_come_from_the_user(self):
-        route = self.tool(
-            "thinner bars for total", tool="histogram", column="total", bins=25
-        )
-        self.assertIsNone(
-            route["bins"]
-        )  # the model made up 25; the user wrote no number
 
     def test_it_means_the_last_column(self):
         self.assertIsNotNone(
@@ -307,7 +295,7 @@ class GemmaChatTest(unittest.TestCase):
     def test_a_lookup_is_answered_and_says_how_it_was_read(self):
         engine, _job, llm, ask = self.engine(
             lambda m, s: json.dumps(
-                {"tool": "stat", "column": "customer_age", "stat": "min", "bins": 0}
+                {"tool": "stat", "column": "customer_age", "stat": "min"}
             )
         )
         reply = ask("zap me the tiniest age")  # the rules don't read this one
@@ -320,24 +308,20 @@ class GemmaChatTest(unittest.TestCase):
             reply[0].text,
         )
 
-    def test_a_chart_change_is_asked_before_it_is_made(self):
-        _engine, _job, _llm, ask = self.engine(
-            lambda m, s: json.dumps(
-                {"tool": "histogram", "column": "", "stat": "", "bins": 15}
-            )
-        )
-        asked = ask("make it chunkier with 15 slices")
-        self.assertEqual(asked[0].choices, ["yes", "no"])
-        self.assertIn("show the histogram with 15 bins", asked[0].text)
-        self.assertIsNone(asked[0].card)  # nothing changed yet
-        self.assertEqual(ask("no")[0].text, lines.CHAT_NEVERMIND)
-        ask("make it chunkier with 15 slices")
-        self.assertEqual(ask("yes")[0].card["spec"]["bins"], 15)
+    def test_chart_requests_never_reach_the_model(self):
+        _, job, llm, ask = self.engine(lambda m, s: self.fail("the model was asked"))
+        before = [dict(c) for c in job.results["artist"]]
+        for message in ("make the histogram chunkier with 15 bins", "please switch the scatter plot to rating"):
+            reply = ask(message)
+            self.assertEqual(reply[0].who, "artist")
+            self.assertIn(lines.CHAT_CHART_DIY, reply[0].text)
+        self.assertEqual(job.results["artist"], before)
+        self.assertEqual(llm.prompts, [])
 
     def test_a_guess_about_a_made_up_column_asks_instead(self):
         _, _, _, ask = self.engine(
             lambda m, s: json.dumps(
-                {"tool": "stat", "column": "weather", "stat": "max", "bins": 0}
+                {"tool": "stat", "column": "weather", "stat": "max"}
             )
         )
         self.assertEqual(
@@ -386,10 +370,8 @@ class GemmaChatTest(unittest.TestCase):
                 )
             )
         reply = out["replies"][0]
-        self.assertEqual(
-            set(reply), {"from", "reply", "choices", "code", "followup", "card"}
-        )
-        self.assertEqual(reply["card"]["spec"]["bins"], 20)
+        self.assertEqual(set(reply), {"from", "reply", "choices", "code", "followup"})
+        self.assertIn(lines.CHAT_CHART_DIY, reply["reply"])
 
 
 MODEL = engines.settings.ollama_model

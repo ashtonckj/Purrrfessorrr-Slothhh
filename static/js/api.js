@@ -60,7 +60,7 @@ export const redrawScatter = (jobId, x, y) => post(`/api/jobs/${jobId}/scatter`,
 
 export const redrawBoxplot = (jobId, column) => post(`/api/jobs/${jobId}/boxplot`, { column });
 
-export const redrawDistribution = (jobId, column) => post(`/api/jobs/${jobId}/distribution`, { column });
+export const redrawDistribution = (jobId, column, bins) => post(`/api/jobs/${jobId}/distribution`, { column, bins });
 
 export const getResults = (jobId, cat) => fetch(`/api/results/${jobId}/${cat}`).then(json);
 

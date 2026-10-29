@@ -122,6 +122,8 @@ Model weights are not bundled. Ollama downloads them separately under [Google's 
    - *Tell me about the outliers.*
    - *What does this histogram show?*
    - *Which libraries does the generated code use?*
+
+   To change a chart, use the dropdowns in its header in the drawer: column and bins for the distribution, column for the box plot, X and Y for the scatter plot. Asked in the chat, the Artist points you there.
 6. **Export** as a ZIP or notebook.
 
 Open-ended questions work best with Gemma enabled; without it, the app says so and falls back to its rules.

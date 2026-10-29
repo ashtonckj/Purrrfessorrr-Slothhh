@@ -19,14 +19,14 @@ Missing means empty, `NA`, `N/A`, `NaN`, `null`, `#N/A` or `<NA>` (but not `None
 | Missing values | `janitor-missing` | always | count and % per column; plan: median for numbers, `"unknown"` for text, drop if over 40% empty |
 | Duplicate rows | `detective-duplicates` | always | exact copies of an earlier row (all chosen columns equal) |
 | Number summaries | `scribe-numbers` | at least one measure | min, Q1, median, mean, Q3, max, std (quartiles: inclusive method, same as pandas) |
-| Distribution | `artist-distribution` | a measure exists | histogram of the target (if it is a number) or the first measure; 10 equal-width bins from min to max |
+| Distribution | `artist-distribution` | a measure exists | histogram of the target (if it is a number) or the first measure; 10 equal-width bins from min to max. The card's dropdowns pick another number column and 2 to 100 bins |
 | Categories and cardinality | `scribe-categories` | at least one text column | distinct count, top 3 values; notes single-value, near-unique (ID or free text?) and over-50-category columns |
 | Category comparison | `artist-by-category` | a text column with 2-50 categories | mean of the main measure per category (or row counts), top 10 |
 | Trend | `artist-trend` | a date column and a measure | monthly sum of the main measure, last 36 months, oldest first; only `YYYY-MM-DD` cells are charted; the x axis is titled with the date column and labels about every 34 px |
-| Outliers | `detective-outliers` | always (counted for measures with more than 2 distinct values) | **potential** outliers: outside Q1 - 1.5 IQR .. Q3 + 1.5 IQR (Tukey's fences). Not confirmed errors |
-| Strongest relationship | `artist-scatter` | two measures with more than 2 distinct values | Pearson r for every pair (on up to 5,000 sampled rows); scatter of the strongest |
-| All correlations | `artist-correlations` | three or more such measures | every pair's r, strongest first. A pattern, not causation |
-| Correlation heatmap | `artist-heatmap` | three or more such measures | the same pairwise r as above as a colour grid (blue negative, red positive), at most 10 columns in file order; each pair uses only rows where both values exist; a pair with no r (constant or too few shared rows) is left blank. Not causation |
+| Outliers | `detective-outliers` | always (counted for measures with more than 2 distinct values) | **potential** outliers: outside Q1 - 1.5 IQR .. Q3 + 1.5 IQR (Tukey's fences). Not confirmed errors. A column whose middle half is one value (IQR = 0, e.g. rain that is mostly 0) is named as not judged: the rule would flag every other value |
+| Box plot | `artist-boxplot` | a measure exists | median, quartiles and 1.5 IQR whiskers of the chart's main column (another can be picked); at most 200 outlier dots, the most extreme distinct values, with the full count in the table; with IQR = 0 the whiskers span the range and no dots are drawn |
+| Strongest relationship | `artist-scatter` | two measures with more than 2 distinct values | Pearson r for every pair (on up to 5,000 sampled rows); scatter of the strongest; the card's X and Y dropdowns pick any other pair |
+| All correlations | `artist-correlations` | three or more such measures | every pair's r as a colour grid (blue negative, red positive; at most 10 columns, in file order) and as a table, strongest first. Each pair uses only rows where both values exist; a pair with no r (constant or too few shared rows) is left blank. A pattern, not causation |
 | Target analysis | `coder-baseline` and the focus of the charts | a target is picked (or a measure exists) | the target is charted first; baseline model: linear regression for numbers, logistic for text |
 | Encoding plan | `janitor-encoding` | always | one-hot up to 12 categories, frequency/target encoding above |
 | Cleaning recipe | `janitor-recipe` | always | dedupe, fix types, fill gaps, trim text, in that order, as code to run yourself |
@@ -59,18 +59,13 @@ column names, file names and settings change between datasets, so the same reque
 same code structure on any file. Each snippet's imports are read back from the code itself when
 the chat explains what to install.
 
-## Changing an analysis from the chat
+## Changing a chart
 
-The histogram is stored as a spec on its card:
+The distribution, box plot and scatter cards have dropdowns in their header: column and bins,
+column, and X and Y. Picking one sends the choice to the server, which checks it (a column the
+card offered, 2 to 100 bins), re-reads only that column, and rebuilds the chart, table and both
+code snippets with the same template as the first version. The rest of the analysis is not re-run,
+the uploaded file is never changed, and the exports follow the new version.
 
-```json
-{"kind": "histogram", "column": "total", "bins": 10, "title": "total", "x_label": "total", "y_label": "count"}
-```
-
-A request like "use 30 bins", "show the distribution of rating", "change the title to Daily
-sales" or "undo" changes a copy of that spec. The backend checks it (the column must be a number
-column in this file, 2 to 100 bins, labels up to 80 printable characters), re-reads only that
-column, and rebuilds the chart, table and both code snippets from the spec. The rest of the
-analysis is not re-run, the uploaded file is never changed, and the previous version is kept
-for "undo". Other chart kinds (box plots, ...) are explained as not supported yet rather than
-faked.
+The chat does not change charts: asked to ("use 30 bins"), the Artist points to these dropdowns.
+Questions about a chart ("what does the histogram show?") are still answered.

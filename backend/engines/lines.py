@@ -90,7 +90,6 @@ CHAT_WHO_GEMMA = (
     "but every number about your data comes from the cats, and nothing leaves your computer..."
 )
 CHAT_GEMMA_DOWN = "(my language model is napping: {problem}. i'm answering from my rule book until it wakes up...)"
-CHAT_GEMMA_GUESS = "i'm not sure i got that... did you mean: '{question}'?"
 CHAT_GEMMA_UNCHECKED_SHORT = (
     "its answer quoted numbers about your file that i could not check"
 )
@@ -124,6 +123,11 @@ CHAT_ASK_STAT = (
     "which column? i would guess {name} ({why})... say yes, or name another."
 )
 CHAT_NOT_READY = "the cats are still reading the file... ask me again in a moment..."
+CHAT_CHART_DIY = (
+    "you can change that yourself: open my results (the artist's Results button) and use the dropdowns in "
+    "each chart's header. distribution: column and bins; box plot: column; scatter: x and y. "
+    "the table, the code and the downloads follow whatever you pick."
+)
 CHAT_HELP = (
     "mmh... i only delegate... ask the cats about outliers, duplicates, missing values, charts, "
     "correlations, code or a model... or ask what is inside: 'what columns are there?', "

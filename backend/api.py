@@ -13,6 +13,8 @@ from pydantic import BaseModel, Field
 from .cats import CATS
 from .config import settings
 from .engines import get_engine
+from .engines import local
+from .engines.local import HIST_BINS, MAX_HIST_BINS
 from .exporters import build_notebook, build_zip
 from .files import Selection, get_file, preview_page, save_upload
 from .jobs import Job, jobs
@@ -163,83 +165,52 @@ async def results(job_id: str, cat: str) -> dict:
     return {"cat": cat, "ready": cat in job.results, "cards": job.results.get(cat, [])}
 
 
-class ScatterIn(BaseModel):
-    x: str
-    y: str
-
-
-@router.post("/jobs/{job_id}/scatter")
-async def redraw_scatter(job_id: str, body: ScatterIn) -> dict:
-    """Update the existing artist card without rerunning the cats."""
-    job = _job_or_404(job_id)
-    cards = job.results.get("artist", [])
-    old = next((c for c in cards if c.get("id") == "artist-scatter"), None)
-    if old is None:
-        raise HTTPException(409, "No scatter plot is available for this analysis")
-    from .engines.local import scatter_card_for_columns
-
-    try:
-        card = await asyncio.to_thread(
-            scatter_card_for_columns, job.file, job.selection, body.x, body.y
-        )
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    card["scatter_columns"] = old.get("scatter_columns", [])
-    cards[cards.index(old)] = card  # exports now use the selected pair
-    return {"card": card}
-
-
 class ColumnIn(BaseModel):
-    column: str
+    column: str = Field(max_length=1000)
 
 
-async def _redraw_artist_card(job_id: str, card_id: str, label: str, build) -> dict:
-    """Swap one artist card for a version drawn from another column (no cat reruns; exports follow it)."""
+class DistributionIn(ColumnIn):
+    bins: int = Field(HIST_BINS, ge=2, le=MAX_HIST_BINS)
+
+
+class ScatterIn(BaseModel):
+    x: str = Field(max_length=1000)
+    y: str = Field(max_length=1000)
+
+
+async def _redraw_artist_card(job_id: str, card_id: str, build) -> dict:
+    """Swap one artist card for a redrawn version (from its header dropdowns): no cat reruns, exports follow it.
+
+    `build(info, selection, old_card)` only accepts columns the old card offered."""
     job = _job_or_404(job_id)
     cards = job.results.get("artist", [])
     old = next((c for c in cards if c.get("id") == card_id), None)
     if old is None:
-        raise HTTPException(409, f"No {label} is available for this analysis")
+        raise HTTPException(409, "that chart is not part of this analysis")
     try:
-        card = await asyncio.to_thread(build, job, old)
+        card = await asyncio.to_thread(build, job.file, job.selection, old)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     cards[cards.index(old)] = card
     return {"card": card}
 
 
+@router.post("/jobs/{job_id}/distribution")
+async def redraw_distribution(job_id: str, body: DistributionIn) -> dict:
+    return await _redraw_artist_card(job_id, "artist-distribution", lambda info, sel, old: local.redraw_distribution(
+        info, sel, old, body.column, body.bins))
+
+
 @router.post("/jobs/{job_id}/boxplot")
 async def redraw_boxplot(job_id: str, body: ColumnIn) -> dict:
-    """Box plot of another column."""
-    from .engines.local import boxplot_card_for_column
-
-    return await _redraw_artist_card(
-        job_id,
-        "artist-boxplot",
-        "box plot",
-        lambda job, old: boxplot_card_for_column(
-            job.file, job.selection, body.column, old.get("column_choices")
-        ),
-    )
+    return await _redraw_artist_card(job_id, "artist-boxplot", lambda info, sel, old: local.redraw_boxplot(
+        info, sel, old, body.column))
 
 
-@router.post("/jobs/{job_id}/distribution")
-async def redraw_distribution(job_id: str, body: ColumnIn) -> dict:
-    """Histogram of another column (keeps the current bin count)."""
-    from .engines.local import HIST_BINS, distribution_card_for_column
-
-    return await _redraw_artist_card(
-        job_id,
-        "artist-distribution",
-        "distribution",
-        lambda job, old: distribution_card_for_column(
-            job.file,
-            job.selection,
-            body.column,
-            old.get("spec", {}).get("bins", HIST_BINS),
-            old.get("column_choices"),
-        ),
-    )
+@router.post("/jobs/{job_id}/scatter")
+async def redraw_scatter(job_id: str, body: ScatterIn) -> dict:
+    return await _redraw_artist_card(job_id, "artist-scatter", lambda info, sel, old: local.redraw_scatter(
+        info, sel, old, body.x, body.y))
 
 
 @router.get("/export/{job_id}/zip")
@@ -276,7 +247,6 @@ async def chat(body: ChatIn) -> dict:
                 "choices": r.choices,
                 "code": r.code,
                 "followup": r.followup,
-                "card": r.card,
             }
             for r in replies
         ]

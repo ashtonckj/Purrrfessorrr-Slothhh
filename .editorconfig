@@ -1,0 +1,5 @@
+root = true
+
+# Every text file ends with a newline, so diffs do not flag the last line of every edited file.
+[*]
+insert_final_newline = true

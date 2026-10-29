@@ -65,13 +65,6 @@ export function initDrawer(container) {
     state.results[cat] = cards;
     if (!drawer.hidden && state.cat === cat) show(cat);
   });
-  on('card:update', ({ cat, card }) => {     // the chat re-drew a chart: swap it in, by id
-    const cards = state.results[cat];
-    if (!cards) return;
-    const i = cards.findIndex(c => c.id === card.id);
-    if (i >= 0) cards[i] = card; else cards.unshift(card);
-    if (!drawer.hidden && state.cat === cat) show(cat);
-  });
   on('job:error', ({ cat, message }) => {
     if (!cat) return;
     state.errors[cat] = message;
@@ -220,11 +213,11 @@ export function renderCard(cat, card, openByDefault, focusPick = null) {
 
 /** What an artist card lets the user change from its header: the dropdowns and how to redraw. Null for other cards. */
 function pickerSpec(card) {
-  if (card.id === 'artist-scatter' && card.chart?.type === 'scatter' && card.scatter_columns?.length) {
+  if (card.id === 'artist-scatter' && card.chart?.type === 'scatter' && card.column_choices?.length > 1) {
     return {
       picks: [
-        { label: 'X', options: card.scatter_columns, value: card.chart.x_label },
-        { label: 'Y', options: card.scatter_columns, value: card.chart.y_label },
+        { label: 'X', options: card.column_choices, value: card.chart.x_label },
+        { label: 'Y', options: card.column_choices, value: card.chart.y_label },
       ],
       redraw: ([x, y]) => {
         if (x === y) throw new Error('Choose two different columns for X and Y');
@@ -240,10 +233,14 @@ function pickerSpec(card) {
       failed: 'Could not redraw box plot',
     };
   }
-  if (card.id === 'artist-distribution' && card.chart?.type === 'hist' && card.column_choices?.length > 1) {
+  if (card.id === 'artist-distribution' && card.chart?.type === 'hist' && card.spec) {
+    const { column, bins } = card.spec;
     return {
-      picks: [{ label: 'Column', options: card.column_choices, value: card.spec?.column ?? card.chart.x_label }],
-      redraw: ([column]) => api.redrawDistribution(state.jobId, column),
+      picks: [
+        { label: 'Column', options: card.column_choices?.length ? card.column_choices : [column], value: column },
+        { label: 'Bins', options: (card.bin_choices ?? [bins]).map(String), value: String(bins) },
+      ],
+      redraw: ([col, n]) => api.redrawDistribution(state.jobId, col, Number(n)),
       failed: 'Could not redraw distribution',
     };
   }
@@ -256,7 +253,7 @@ function headerPicks(cat, card, details, message, focusPick) {
   if (!spec) return null;
 
   const selects = spec.picks.map(({ label, options, value }, i) => el('select', {
-    class: 'picker__select card__pick', 'data-pick': String(i), 'aria-label': `${card.title}: ${label} column`,
+    class: 'picker__select card__pick', 'data-pick': String(i), 'aria-label': `${card.title}: ${label}`,
   }, options.map(name => el('option', { value: name, text: name, selected: name === value }))));
 
   const change = async () => {

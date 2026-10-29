@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from backend.engines.local import BUILDERS, analyse, scatter_card_for_columns
+from backend.engines.local import BUILDERS, analyse, redraw_scatter
 from backend.files import FileInfo, Selection, inspect
 
 
@@ -37,7 +37,7 @@ class DuplicateHeaderTest(unittest.TestCase):
         facts = analyse(info)
         self.assertEqual([c.name for c in facts.cols], ["v", "v.1", "w"])
         self.assertNotEqual(facts.cols[0].stats["max"], facts.cols[1].stats["max"])
-        card = scatter_card_for_columns(info, Selection(), "v", "v.1")
+        card = redraw_scatter(info, Selection(), {"column_choices": ["v", "v.1", "w"]}, "v", "v.1")
         xs = {p[0] for p in card["chart"]["points"]}
         ys = {p[1] for p in card["chart"]["points"]}
         self.assertNotEqual(xs, ys)  # the second column is really the second column
